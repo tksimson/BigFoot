@@ -36,11 +36,6 @@ class Config:
     def _get_default_config(self) -> Dict[str, Any]:
         """Get default configuration."""
         return {
-            'github': {
-                'token': '',
-                'repos': [],
-                'rate_limit': 5000
-            },
             'settings': {
                 'timezone': 'UTC',
                 'daily_goal': 10,
@@ -58,35 +53,6 @@ class Config:
         except IOError as e:
             raise Exception(f"Could not save config file: {e}")
     
-    def get_github_token(self) -> str:
-        """Get GitHub token from config."""
-        return self.config.get('github', {}).get('token', '')
-    
-    def set_github_token(self, token: str) -> None:
-        """Set GitHub token in config."""
-        if 'github' not in self.config:
-            self.config['github'] = {}
-        self.config['github']['token'] = token
-    
-    def get_repositories(self) -> List[str]:
-        """Get list of repositories from config."""
-        return self.config.get('github', {}).get('repos', [])
-    
-    def add_repository(self, repo: str) -> None:
-        """Add repository to config."""
-        if 'github' not in self.config:
-            self.config['github'] = {}
-        if 'repos' not in self.config['github']:
-            self.config['github']['repos'] = []
-        
-        if repo not in self.config['github']['repos']:
-            self.config['github']['repos'].append(repo)
-    
-    def remove_repository(self, repo: str) -> None:
-        """Remove repository from config."""
-        if 'github' in self.config and 'repos' in self.config['github']:
-            if repo in self.config['github']['repos']:
-                self.config['github']['repos'].remove(repo)
     
     def get_daily_goal(self) -> int:
         """Get daily commit goal."""
@@ -110,14 +76,5 @@ class Config:
     
     def is_configured(self) -> bool:
         """Check if BigFoot is properly configured."""
-        return bool(self.get_github_token() and self.get_repositories())
-    
-    def get_rate_limit(self) -> int:
-        """Get GitHub API rate limit."""
-        return self.config.get('github', {}).get('rate_limit', 5000)
-    
-    def set_rate_limit(self, limit: int) -> None:
-        """Set GitHub API rate limit."""
-        if 'github' not in self.config:
-            self.config['github'] = {}
-        self.config['github']['rate_limit'] = limit
+        # BigFoot is always configured for local tracking - no setup needed
+        return True
