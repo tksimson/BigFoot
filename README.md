@@ -4,36 +4,71 @@ A lightweight Python CLI tool that motivates developers to code daily by trackin
 
 ## Quick Start
 
-```bash
-# Install
-pip install -e .
+### Option 1: Local Git Tracking (Recommended) ⭐
+Track commits across ALL your local repositories - no tokens needed!
 
-# Setup
+```bash
+# Ready to use! Run from anywhere in your terminal:
+bigfoot local                    # Track today's commits
+bigfoot local --date 2025-09-18 # Track specific date
+bigfoot local --search-paths "/home/user/projects,/home/user/work"
+```
+
+### Option 2: GitHub API Tracking
+Track specific GitHub repositories using the API:
+
+```bash
+# First-time setup with GitHub token
 bigfoot init
 
 # Track daily progress
 bigfoot track
+
+# Check status
+bigfoot status
 ```
 
 ## Features
 
-- 🎯 Track daily GitHub commits across multiple repositories
-- 🔥 Calculate and display coding streaks
-- 📈 Show progress toward daily goals with visual indicators
-- 🏆 Provide motivational messages and achievements
-- 💾 Store data locally in SQLite (no cloud dependencies)
+- 🎯 **Local Git Tracking**: Scans ALL your local repositories automatically
+- 🔥 **Detailed Statistics**: Lines added/deleted, files changed, commit messages  
+- 📈 **Multiple Email Support**: Tracks all your git email addresses
+- 🚀 **No API Limits**: Works offline, no tokens required for local tracking
+- 🏆 **Motivational Feedback**: Progress bars and achievement messages
+- 💾 **Local Storage**: SQLite database, no cloud dependencies
+
+## Usage Examples
+
+```bash
+# Most common usage - track today's commits
+bigfoot local
+
+# Track any specific date
+bigfoot local --date 2025-09-15
+
+# Focus on specific directories
+bigfoot local --search-paths "/home/user/work,/home/user/personal"
+
+# Check app status and settings
+bigfoot doctor
+
+# See all available commands
+bigfoot --help
+```
 
 ## Commands
 
-- `bigfoot track` - Collect today's data and show progress
-- `bigfoot status` - Quick overview of current state
-- `bigfoot init` - First-time setup
+- `bigfoot local` - **Recommended**: Track commits from local git repositories
+- `bigfoot track` - Track via GitHub API (requires setup)
+- `bigfoot status` - Show current status and recent progress  
+- `bigfoot init` - Configure GitHub API access
+- `bigfoot doctor` - Run diagnostics
 
 ## Requirements
 
 - Python 3.8+
-- GitHub Personal Access Token
-- Internet connection for GitHub API access
+- Git installed (for local tracking)
+- Optional: GitHub Personal Access Token (only for API tracking)
 
 ## License
 

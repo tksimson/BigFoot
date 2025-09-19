@@ -13,6 +13,7 @@ from rich.progress import Progress, SpinnerColumn, TextColumn
 from .config import Config
 from .database import Database
 from .tracker import GitHubTracker
+from .local_tracker import LocalGitTracker
 from .rewards import RewardsEngine
 from .utils import (
     get_console, format_progress_bar, format_streak_display, 
@@ -47,6 +48,9 @@ def init(token: str, repos: str, goal: int):
         # Initialize components
         config = Config()
         database = Database()
+        
+        # Set token BEFORE creating tracker
+        config.set_github_token(token)
         tracker = GitHubTracker(config, database)
         
         # Validate token
@@ -54,9 +58,6 @@ def init(token: str, repos: str, goal: int):
         if not tracker.test_connection():
             show_error_panel("Invalid GitHub token. Please check your token and try again.")
             sys.exit(1)
-        
-        # Set token
-        config.set_github_token(token)
         
         # Parse and validate repositories
         repo_list = [repo.strip() for repo in repos.split(',') if repo.strip()]
@@ -138,7 +139,8 @@ def track(date: str = None):
         if date:
             target_date = date
         else:
-            target_date = date.today().isoformat()
+            from datetime import date as date_module
+            target_date = date_module.today().isoformat()
         
         # Track commits
         with Progress(
@@ -350,6 +352,88 @@ def doctor():
         console.print("✅ BigFoot is properly configured and ready to use!")
     else:
         console.print("❌ BigFoot needs configuration. Run 'bigfoot init' to set up.")
+
+
+@cli.command('local')
+@click.option('--date', help='Track commits for specific date (YYYY-MM-DD)')
+@click.option('--search-paths', help='Comma-separated paths to search for repositories')
+def track_local(date: str = None, search_paths: str = None):
+    """Track commits using local git repositories (no GitHub API needed)."""
+    console = get_console()
+    
+    try:
+        # Initialize components
+        database = Database()
+        
+        # Parse search paths if provided
+        if search_paths:
+            paths = [path.strip() for path in search_paths.split(',') if path.strip()]
+        else:
+            paths = None
+        
+        local_tracker = LocalGitTracker(database, paths)
+        
+        # Determine target date
+        if date:
+            target_date = date
+        else:
+            from datetime import date as date_module
+            target_date = date_module.today().isoformat()
+        
+        console.print(f"🔍 Scanning local git repositories for {target_date}...")
+        console.print()
+        
+        # Track commits
+        results = local_tracker.track_date(target_date)
+        
+        # Display results
+        console.print()
+        
+        # Progress header
+        commits = results['total_commits']
+        
+        console.print(f"🎯 {format_commit_count(commits)}")
+        console.print()
+        
+        # User emails found
+        if results.get('user_emails'):
+            console.print(f"👤 Tracking commits from: {', '.join(sorted(results['user_emails']))}")
+            console.print()
+        
+        # Repository breakdown
+        if results.get('repositories'):
+            table = Table(show_header=True, header_style="bold blue")
+            table.add_column("Repository", style="cyan")
+            table.add_column("Commits", justify="right", style="green")
+            table.add_column("Lines Added", justify="right", style="yellow")
+            table.add_column("Lines Deleted", justify="right", style="red")
+            table.add_column("Files Changed", justify="right", style="blue")
+            
+            for repo_stat in results['repositories']:
+                table.add_row(
+                    repo_stat['repo'],
+                    str(repo_stat['count']),
+                    str(repo_stat['lines_added']),
+                    str(repo_stat['lines_deleted']),
+                    str(repo_stat['files_changed'])
+                )
+            
+            console.print(table)
+            console.print()
+        
+        # Individual commits
+        if results.get('commits'):
+            console.print("📝 Recent commits:")
+            for commit in results['commits'][-5:]:  # Show last 5 commits
+                console.print(f"  • {commit['repo_name']}: {commit['message'][:60]}...")
+            console.print()
+        
+        # Motivational message
+        console.print(f"💬 Great job! You made {commits} commits today across {len(results.get('repositories', []))} repositories!")
+        
+    except Exception as e:
+        show_error_panel(f"Local tracking failed: {e}")
+        sys.exit(1)
 
 
 if __name__ == '__main__':
