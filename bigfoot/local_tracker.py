@@ -276,10 +276,33 @@ class LocalGitTracker:
                 print(f"⚠️  Warning: Could not process {repo_path}: {e}")
                 continue
         
+        # Deduplicate and aggregate repositories with the same name
+        aggregated_repos = {}
+        for stat in repo_stats:
+            repo_name = stat['repo']
+            if repo_name in aggregated_repos:
+                # Aggregate statistics for duplicate repository names
+                aggregated_repos[repo_name]['count'] += stat['count']
+                aggregated_repos[repo_name]['lines_added'] += stat['lines_added']
+                aggregated_repos[repo_name]['lines_deleted'] += stat['lines_deleted']
+                aggregated_repos[repo_name]['files_changed'] += stat['files_changed']
+            else:
+                # First occurrence of this repository name
+                aggregated_repos[repo_name] = {
+                    'repo': repo_name,
+                    'count': stat['count'],
+                    'lines_added': stat['lines_added'],
+                    'lines_deleted': stat['lines_deleted'],
+                    'files_changed': stat['files_changed']
+                }
+        
+        # Convert back to list format
+        deduplicated_repo_stats = list(aggregated_repos.values())
+        
         return {
             'date': target_date,
             'total_commits': len(all_commits),
-            'repositories': repo_stats,
+            'repositories': deduplicated_repo_stats,
             'user_emails': all_user_emails,
             'commits': all_commits
         }
