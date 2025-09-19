@@ -17,7 +17,8 @@ from .rewards import RewardsEngine
 from .utils import (
     get_console, format_progress_bar, format_streak_display, 
     format_commit_count, get_motivational_message, show_error_panel,
-    show_success_panel, show_info_panel, format_repo_list, create_progress_table
+    show_success_panel, show_info_panel, format_repo_list, create_progress_table,
+    validate_backfill_days, format_date_range
 )
 
 
@@ -165,6 +166,87 @@ def track(date: str = None, search_paths: str = None):
         
     except Exception as e:
         show_error_panel(f"Local tracking failed: {e}")
+        sys.exit(1)
+
+
+@cli.command()
+@click.option('--days', required=True, type=int, help='Number of days to go back (required)')
+@click.option('--search-paths', help='Comma-separated paths to search for repositories')
+@click.option('--dry-run', is_flag=True, help='Show what would be processed without saving to database')
+@click.option('--force', is_flag=True, help='Force overwrite existing data (default: skip duplicates)')
+@click.option('--batch-size', default=10, type=int, help='Process repositories in batches (default: 10)')
+@click.option('--quiet', is_flag=True, help='Suppress progress output')
+def backfill(days: int, search_paths: str = None, dry_run: bool = False, 
+            force: bool = False, batch_size: int = 10, quiet: bool = False):
+    """Backfill historical git commits into the database.
+    
+    This command scans your git repositories for historical commits and adds them
+    to BigFoot's database, enabling complete progress tracking and streak calculation.
+    
+    Examples:
+      bigfoot backfill --days 30
+      bigfoot backfill --days 7 --dry-run
+      bigfoot backfill --days 60 --search-paths "/home/user/work,/home/user/personal"
+    """
+    console = get_console()
+    
+    try:
+        # Validate input parameters
+        valid, error_msg = validate_backfill_days(days)
+        if not valid:
+            show_error_panel(f"Invalid days parameter: {error_msg}")
+            sys.exit(1)
+        
+        if not quiet:
+            console.print("🔄 BigFoot Historical Backfill")
+            console.print()
+        
+        # Initialize components
+        database = Database()
+        
+        # Parse search paths if provided
+        if search_paths:
+            paths = [path.strip() for path in search_paths.split(',') if path.strip()]
+        else:
+            paths = None
+        
+        local_tracker = LocalGitTracker(database, paths)
+        
+        # Execute backfill
+        results = local_tracker.backfill_history(
+            days=days,
+            search_paths=paths,
+            dry_run=dry_run,
+            force=force,
+            batch_size=batch_size,
+            quiet=quiet
+        )
+        
+        if not quiet:
+            # Display results summary
+            console.print()
+            console.print("📈 Backfill Results:")
+            console.print(f"  • {results['processed_days']} days processed")
+            console.print(f"  • {results['processed_repos']} repositories found")
+            console.print(f"  • {results['total_commits']} commits discovered")
+            console.print(f"  • {results['database_entries']} database entries {'created' if not dry_run else 'would be created'}")
+            console.print(f"  • {results['duration_seconds']:.1f} seconds elapsed")
+            
+            if results.get('errors'):
+                console.print()
+                console.print(f"⚠️  {len(results['errors'])} warnings:")
+                for error in results['errors']:
+                    console.print(f"  • {error}")
+            
+            console.print()
+            if dry_run:
+                console.print("🔍 This was a dry run - no data was saved.")
+                console.print("⚡ Run without --dry-run to execute backfill")
+            else:
+                show_success_panel("Backfill completed successfully!")
+        
+    except Exception as e:
+        show_error_panel(f"Backfill failed: {e}")
         sys.exit(1)
 
 

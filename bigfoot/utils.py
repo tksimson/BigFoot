@@ -127,6 +127,59 @@ def get_recent_dates(days: int) -> List[str]:
     return dates
 
 
+def generate_date_range(days: int, reverse: bool = True) -> List[str]:
+    """Generate date range for backfilling.
+    
+    Args:
+        days: Number of days to go back from today
+        reverse: If True, return oldest dates first (recommended for backfill)
+        
+    Returns:
+        List of dates in YYYY-MM-DD format
+    """
+    today = date.today()
+    dates = []
+    
+    for i in range(days):
+        target_date = today - timedelta(days=i)
+        dates.append(target_date.isoformat())
+    
+    if reverse:
+        dates.reverse()  # Oldest first for logical backfill order
+    
+    return dates
+
+
+def validate_backfill_days(days: int) -> tuple[bool, str]:
+    """Validate backfill date range parameters.
+    
+    Args:
+        days: Number of days to validate
+        
+    Returns:
+        Tuple of (is_valid, error_message)
+    """
+    if days < 1:
+        return False, "Days must be positive"
+    if days > 365:
+        return False, "Maximum 365 days supported (use multiple runs for more)"
+    return True, ""
+
+
+def format_date_range(start_date: str, end_date: str, days: int) -> str:
+    """Format date range for display.
+    
+    Args:
+        start_date: Start date in YYYY-MM-DD format
+        end_date: End date in YYYY-MM-DD format  
+        days: Number of days in range
+        
+    Returns:
+        Formatted date range string
+    """
+    return f"{start_date} to {end_date} ({days} days)"
+
+
 def validate_repo_name(repo: str) -> bool:
     """Validate repository name format.
     

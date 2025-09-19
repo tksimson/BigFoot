@@ -3,10 +3,14 @@
 import os
 import subprocess
 import json
+import time
 from datetime import datetime, date, timedelta
 from pathlib import Path
 from typing import List, Dict, Optional, Set
+from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskProgressColumn
+from rich.console import Console
 from .database import Database
+from .utils import generate_date_range, format_date_range
 
 
 class LocalGitTracker:
@@ -306,6 +310,206 @@ class LocalGitTracker:
             'user_emails': all_user_emails,
             'commits': all_commits
         }
+    
+    def backfill_history(self, days: int, search_paths: List[str] = None, 
+                        dry_run: bool = False, force: bool = False,
+                        batch_size: int = 10, quiet: bool = False) -> Dict:
+        """Backfill historical git commit data.
+        
+        Args:
+            days: Number of days to go back from today
+            search_paths: Custom repository search paths
+            dry_run: Preview mode without database writes
+            force: Overwrite existing data
+            batch_size: Number of repos to process simultaneously  
+            quiet: Suppress progress output
+            
+        Returns:
+            Dictionary with backfill results and statistics
+        """
+        start_time = time.time()
+        console = Console() if not quiet else None
+        
+        # Generate date range (oldest first)
+        date_range = generate_date_range(days, reverse=True)
+        start_date = date_range[0] if date_range else None
+        end_date = date_range[-1] if date_range else None
+        
+        if not quiet and console:
+            console.print("📊 Configuration:")
+            console.print(f"  • Date range: {format_date_range(start_date, end_date, days)}")
+            console.print(f"  • Mode: {'Dry Run' if dry_run else 'Normal'}")
+            if force:
+                console.print("  • Force mode: Overwriting existing data")
+            console.print()
+        
+        # Find repositories
+        if not quiet and console:
+            console.print("🔍 Discovering git repositories...")
+        
+        repos = self.find_git_repositories()
+        
+        if not repos:
+            return {
+                'processed_days': len(date_range),
+                'processed_repos': 0,
+                'total_commits': 0,
+                'database_entries': 0,
+                'duration_seconds': time.time() - start_time,
+                'errors': ['No git repositories found'],
+                'warnings': []
+            }
+        
+        if not quiet and console:
+            console.print(f"  • Repositories: {len(repos)} found")
+            console.print()
+        
+        # Initialize statistics
+        total_commits_found = 0
+        total_database_entries = 0
+        processed_repos = 0
+        errors = []
+        warnings = []
+        
+        # Setup progress tracking
+        if not quiet and console:
+            console.print("🔍 Processing historical commits...")
+            console.print()
+        
+        # Process each date in the range
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            BarColumn(),
+            TaskProgressColumn(),
+            console=console if not quiet else None,
+            disable=quiet
+        ) as progress:
+            
+            # Create progress tasks
+            date_task = progress.add_task("Processing dates", total=len(date_range))
+            repo_task = progress.add_task("Processing repositories", total=len(repos))
+            
+            for current_date in date_range:
+                progress.update(date_task, description=f"Day: {current_date}")
+                
+                # Reset repo progress for each date
+                progress.update(repo_task, completed=0, description="Scanning repositories")
+                
+                date_commits = 0
+                date_entries = 0
+                
+                # Process repositories in batches
+                for i in range(0, len(repos), batch_size):
+                    batch_repos = repos[i:i + batch_size]
+                    
+                    for repo_path in batch_repos:
+                        try:
+                            # Check if we should skip this repo/date combination
+                            repo_name = os.path.basename(repo_path)
+                            
+                            if not force and not dry_run:
+                                # Check if data already exists
+                                existing = self._check_existing_data(repo_name, current_date)
+                                if existing:
+                                    progress.update(repo_task, advance=1)
+                                    continue
+                            
+                            # Get user emails for this repo
+                            user_emails = self.get_git_user_emails(repo_path)
+                            
+                            # Get commits for the date
+                            commits = self.get_commits_for_date(repo_path, current_date, user_emails)
+                            
+                            if commits:
+                                # Calculate statistics
+                                total_lines_added = 0
+                                total_lines_deleted = 0
+                                total_files_changed = 0
+                                
+                                for commit in commits:
+                                    stats = self.get_commit_stats(repo_path, commit['sha'])
+                                    total_lines_added += stats['lines_added']
+                                    total_lines_deleted += stats['lines_deleted']
+                                    total_files_changed += stats['files_changed']
+                                
+                                commit_data = {
+                                    'repo': repo_name,
+                                    'date': current_date,
+                                    'count': len(commits),
+                                    'lines_added': total_lines_added,
+                                    'lines_deleted': total_lines_deleted
+                                }
+                                
+                                # Save to database (unless dry run)
+                                if not dry_run:
+                                    if force:
+                                        # Force mode: delete existing and insert new
+                                        self.database.delete_commit_data(repo_name, current_date)
+                                    
+                                    self.database.save_commits([commit_data])
+                                    date_entries += 1
+                                else:
+                                    # Dry run: just count what would be saved
+                                    date_entries += 1
+                                
+                                date_commits += len(commits)
+                                processed_repos = len(set([r for r in repos if os.path.exists(r)]))
+                            
+                        except subprocess.SubprocessError as e:
+                            error_msg = f"Repository {repo_path}: Git error - {str(e)[:100]}"
+                            errors.append(error_msg)
+                        except Exception as e:
+                            error_msg = f"Repository {repo_path}: {str(e)[:100]}"
+                            errors.append(error_msg)
+                        
+                        progress.update(repo_task, advance=1)
+                
+                total_commits_found += date_commits
+                total_database_entries += date_entries
+                
+                # Update date progress
+                progress.advance(date_task)
+        
+        # Calculate final statistics
+        duration = time.time() - start_time
+        
+        return {
+            'processed_days': len(date_range),
+            'processed_repos': processed_repos,
+            'total_commits': total_commits_found,
+            'database_entries': total_database_entries,
+            'duration_seconds': duration,
+            'errors': errors,
+            'warnings': warnings,
+            'date_range': {
+                'start': start_date,
+                'end': end_date,
+                'days': days
+            }
+        }
+    
+    def _check_existing_data(self, repo_name: str, date: str) -> bool:
+        """Check if data already exists for repo/date combination.
+        
+        Args:
+            repo_name: Repository name
+            date: Date in YYYY-MM-DD format
+            
+        Returns:
+            True if data exists, False otherwise
+        """
+        try:
+            import sqlite3
+            with sqlite3.connect(self.database.db_path) as conn:
+                cursor = conn.execute(
+                    "SELECT COUNT(*) FROM commits WHERE repo = ? AND date = ?",
+                    (repo_name, date)
+                )
+                count = cursor.fetchone()[0]
+                return count > 0
+        except Exception:
+            return False
     
     def track_today(self) -> Dict:
         """Track commits for today.

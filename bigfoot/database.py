@@ -98,6 +98,25 @@ class Database:
                 ))
             conn.commit()
     
+    def delete_commit_data(self, repo: str, target_date: str) -> bool:
+        """Delete commit data for a specific repository and date.
+        
+        Args:
+            repo: Repository name
+            target_date: Date in YYYY-MM-DD format
+            
+        Returns:
+            True if data was deleted, False if no data existed
+        """
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.execute("""
+                DELETE FROM commits 
+                WHERE repo = ? AND date = ?
+            """, (repo, target_date))
+            
+            conn.commit()
+            return cursor.rowcount > 0
+    
     def get_commits_by_date(self, target_date: str) -> List[Dict]:
         """Get commits for a specific date.
         
