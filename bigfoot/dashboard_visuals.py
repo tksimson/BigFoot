@@ -1,6 +1,7 @@
 """Visual components and rendering for the BigFoot motivational dashboard."""
 
 import math
+import random
 from datetime import datetime, date, timedelta
 from typing import List, Dict, Optional
 from rich.console import Console
@@ -17,16 +18,153 @@ from .dashboard import (
 )
 
 
+class MotivationalEngine:
+    """Dynamic motivational message generator with synonym randomization."""
+    
+    def __init__(self):
+        """Initialize with synonym dictionaries and message templates."""
+        # Synonym dictionaries for randomization
+        self.synonyms = {
+            'amazing': ['amazing', 'incredible', 'outstanding', 'fantastic', 'excellent', 'superb'],
+            'building': ['building', 'developing', 'creating', 'growing', 'forging', 'crafting'],
+            'streak': ['streak', 'run', 'chain', 'momentum', 'flow', 'rhythm'],
+            'progress': ['progress', 'growth', 'momentum', 'improvement', 'advancement', 'evolution'],
+            'keep': ['keep', 'maintain', 'continue', 'sustain', 'push', 'drive'],
+            'crushing': ['crushing', 'dominating', 'smashing', 'destroying', 'owning', 'killing'],
+            'going': ['going', 'moving', 'pushing', 'flowing', 'rolling', 'charging'],
+            'legendary': ['legendary', 'epic', 'unstoppable', 'godlike', 'mythical', 'insane'],
+            'power': ['power', 'strength', 'force', 'energy', 'drive', 'fire'],
+            'strong': ['strong', 'solid', 'powerful', 'robust', 'fierce', 'unstoppable'],
+            'next': ['next', 'upcoming', 'approaching', 'incoming', 'future', 'coming']
+        }
+        
+        # Message templates for each performance level
+        self.templates = {
+            PerformanceLevel.LEGENDARY: [
+                "🏆 {streak} days {strong}! You're operating on a different level now.",
+                "👑 That {commits} commits this week? Pure {legendary} performance.",
+                
+                "🔥 {streak}-day {streak} with {commits} commits? You're in beast mode!",
+                "⚡ This consistency is what separates legends from everyone else.",
+                
+                "💎 {commits} commits this week - that's {legendary} territory!",
+                "🚀 Your {power} is undeniable. {keep} this momentum {going}!",
+                
+                "🌟 {streak} days straight? You've transcended normal coding habits.",
+                "🎯 Challenge: Can you maintain this {legendary} status? I know you can!",
+                
+                "👹 {commits} commits with {consistency} active days? Monster performance!",
+                "⭐ You're not just coding - you're {building} mastery daily."
+            ],
+            PerformanceLevel.CRUSHING: [
+                "🔥 {streak} days and {commits} commits? You're absolutely {crushing} it!",
+                "💪 That {change}% growth shows your momentum is {strong}.",
+                
+                "⚡ {consistency} active days this week - your rhythm is {amazing}!",
+                "🎯 {milestone_days} days to your {next} milestone. You've got this!",
+                
+                "🚀 {commits} commits shows real commitment. {keep} that fire burning!",
+                "📈 Your {progress} is accelerating. Can you feel that {power}?",
+                
+                "💎 This {streak}-day run proves you show up when it counts.",
+                "🌟 {consistency}/7 days active? That's champion-level consistency!",
+                
+                "🔥 Week-over-week growth: {change}%! Your momentum is {building}.",
+                "⚡ You're {building} something {strong}. {next} level incoming!"
+            ],
+            PerformanceLevel.BUILDING: [
+                "⚡ {consistency} active days this week - you're finding your rhythm!",
+                "🎯 {milestone_days} days to {milestone} milestone. {progress} is happening!",
+                
+                "🌱 Your {streak}-day {streak} shows real potential. {keep} {building}!",
+                "💪 Every commit proves you're someone who follows through.",
+                
+                "📊 {commits} commits this week? Solid {progress} happening here.",
+                "🔥 You're {building} the habit of showing up daily. That's {power}!",
+                
+                "⚡ {consistency}/7 active days - momentum is clearly {building}!",
+                "🚀 This is where champions separate from average. Which are you?",
+                
+                "💎 Your consistency this week is {amazing}. {keep} it {going}!",
+                "🎯 {milestone_days} more days to level up. You're almost there!"
+            ],
+            PerformanceLevel.STARTING: [
+                "🌟 Every {legendary} coder started exactly where you are now.",
+                "🚀 You've taken the first step - that puts you ahead of most!",
+                
+                "💎 Small wins lead to big victories. Just focus on today.",
+                "⚡ The journey of a thousand commits begins with one. You're {building}!",
+                
+                "🔥 Tracking your {progress} shows you're serious about growth.",
+                "🎯 Champions aren't born - they're forged one commit at a time.",
+                
+                "🌱 Your coding journey starts now. Every expert was once a beginner.",
+                "💪 Just {keep} showing up. Consistency beats perfection every time.",
+                
+                "⭐ You're {building} something {amazing}. One day at a time wins.",
+                "🚀 Today's commit is tomorrow's momentum. Start your {streak}!"
+            ]
+        }
+    
+    def get_random_synonym(self, word: str) -> str:
+        """Get random synonym for a word, fallback to original if not found."""
+        return random.choice(self.synonyms.get(word, [word]))
+    
+    def format_message(self, template: str, streak_data: StreakData, momentum: MomentumMetrics) -> str:
+        """Format message template with data and random synonyms."""
+        # Calculate dynamic values
+        change = abs(momentum.week_over_week_change)
+        
+        # Create formatting dictionary with synonym randomization
+        format_dict = {
+            'streak': streak_data.current_streak,
+            'commits': momentum.this_week_commits,
+            'consistency': momentum.consistency_score,
+            'milestone': streak_data.next_milestone,
+            'milestone_days': streak_data.days_to_milestone,
+            'change': int(change),
+            
+            # Randomized synonyms
+            'amazing': self.get_random_synonym('amazing'),
+            'building': self.get_random_synonym('building'),
+            'progress': self.get_random_synonym('progress'),
+            'keep': self.get_random_synonym('keep'),
+            'crushing': self.get_random_synonym('crushing'),
+            'going': self.get_random_synonym('going'),
+            'legendary': self.get_random_synonym('legendary'),
+            'power': self.get_random_synonym('power'),
+            'strong': self.get_random_synonym('strong'),
+            'next': self.get_random_synonym('next')
+        }
+        
+        return template.format(**format_dict)
+    
+    def generate_message(self, performance_level: PerformanceLevel, 
+                        streak_data: StreakData, momentum: MomentumMetrics) -> str:
+        """Generate dynamic motivational message."""
+        templates = self.templates.get(performance_level, self.templates[PerformanceLevel.STARTING])
+        
+        # Randomly select 2 lines (each template is a 2-line pair)
+        selected_pair = random.choice(list(zip(templates[::2], templates[1::2])))
+        
+        # Format both lines with data and random synonyms
+        line1 = self.format_message(selected_pair[0], streak_data, momentum)
+        line2 = self.format_message(selected_pair[1], streak_data, momentum)
+        
+        return f"{line1}\n{line2}"
+
+
 class DashboardRenderer:
     """Renders dashboard components using Rich library."""
     
     def __init__(self, console: Optional[Console] = None):
-        """Initialize renderer with console.
+        """Initialize renderer with console and motivational engine.
         
         Args:
             console: Rich console instance
         """
         self.console = console or Console()
+        self.motivational_engine = MotivationalEngine()
     
     def render_streak_header(self, streak_data: StreakData) -> Panel:
         """Render the main streak header with fire animation.
@@ -388,7 +526,7 @@ class DashboardRenderer:
     
     def render_motivational_message(self, performance_level: PerformanceLevel, 
                                   streak_data: StreakData, momentum: MomentumMetrics) -> Panel:
-        """Render Tony Robbins-style motivational message.
+        """Render concise, dynamic motivational message.
         
         Args:
             performance_level: Current performance categorization
@@ -396,80 +534,15 @@ class DashboardRenderer:
             momentum: Momentum metrics
             
         Returns:
-            Rich Panel with motivational message
+            Rich Panel with 2-line motivational message
         """
-        messages = {
-            PerformanceLevel.LEGENDARY: self._get_legendary_message(streak_data, momentum),
-            PerformanceLevel.CRUSHING: self._get_crushing_message(streak_data, momentum),
-            PerformanceLevel.BUILDING: self._get_building_message(streak_data, momentum),
-            PerformanceLevel.STARTING: self._get_starting_message(streak_data, momentum)
-        }
-        
-        message = messages.get(performance_level, "Keep coding, keep growing! 🚀")
+        message = self.motivational_engine.generate_message(
+            performance_level, streak_data, momentum
+        )
         
         return Panel(
             message,
             title="[gold1 bold]💬 MOTIVATIONAL BOOST[/gold1 bold]",
             border_style="gold1",
-            padding=(1, 2)
+            padding=(0, 1)  # Reduced padding for more compact display
         )
-    
-    def _get_legendary_message(self, streak_data: StreakData, momentum: MomentumMetrics) -> str:
-        """Generate message for legendary performance."""
-        return f"""[bright_magenta bold]YOU ARE ABSOLUTELY LEGENDARY![/bright_magenta bold]
-
-🏆 A {streak_data.current_streak}-day streak with {momentum.this_week_commits} commits this week? 
-That's not just coding - that's [gold1 bold]MASTERY IN ACTION![/gold1 bold]
-
-You've transcended from learning to code to [bright_cyan]BEING A CODER[/bright_cyan]. This consistency 
-is what separates the legends from everyone else. You don't code because you have to - 
-you code because it's WHO YOU ARE.
-
-🚀 [bright_red bold]CHALLENGE:[/bright_red bold] Can you maintain this legendary status? The question isn't 
-if you CAN - it's if you WILL. I know you will! 👑"""
-
-    def _get_crushing_message(self, streak_data: StreakData, momentum: MomentumMetrics) -> str:
-        """Generate message for crushing performance."""  
-        change_msg = ""
-        if momentum.week_over_week_change > 0:
-            change_msg = f" That {momentum.week_over_week_change:.0f}% increase this week? ELECTRIC!"
-        
-        return f"""[bright_red bold]YOU ARE ABSOLUTELY CRUSHING IT![/bright_red bold]
-
-🔥 This {streak_data.current_streak}-day streak isn't just about code - it's about 
-[bright_yellow]WHO YOU'RE BECOMING[/bright_yellow]. You're building the identity of someone who 
-SHOWS UP every single day. That consistency? That's the foundation of GREATNESS!
-
-{momentum.this_week_commits} commits this week!{change_msg} Can you feel that momentum? 
-That's the [bright_green]compound effect of excellence[/bright_green] in action.
-
-🎯 [bright_cyan bold]BREAKTHROUGH MOMENT:[/bright_cyan bold] You're {streak_data.days_to_milestone} days from your next milestone. 
-This is where champions are made. Keep that fire burning! 🚀"""
-
-    def _get_building_message(self, streak_data: StreakData, momentum: MomentumMetrics) -> str:
-        """Generate message for building momentum."""
-        return f"""[bright_blue bold]MOMENTUM IS BUILDING![/bright_blue bold]
-
-⚡ I can see it happening - you're finding your rhythm! {momentum.consistency_score} active days 
-this week is [bright_green]FANTASTIC progress[/bright_green]. Every commit is proof that you're 
-someone who follows through.
-
-Your {streak_data.current_streak}-day streak shows you have what it takes. Remember: Champions 
-aren't made in the comfort zone. You're building something [bright_yellow]POWERFUL[/bright_yellow] here.
-
-💪 [bright_red bold]POWER MOMENT:[/bright_red bold] This is where average people quit and CHAMPIONS level up. 
-You're {streak_data.days_to_milestone} days from your {streak_data.next_milestone}-day milestone. Which one are you? 🎯"""
-
-    def _get_starting_message(self, streak_data: StreakData, momentum: MomentumMetrics) -> str:
-        """Generate message for starting out."""
-        return f"""[bright_cyan bold]THE JOURNEY OF A THOUSAND COMMITS BEGINS WITH ONE![/bright_cyan bold]
-
-🌟 Every expert was once a beginner. Every champion was once a contender. 
-Every success story started with someone who decided [bright_yellow]TODAY[/bright_yellow] was the day to begin.
-
-You've taken the FIRST STEP by tracking your progress. That puts you ahead of 
-90% of developers who just hope things improve magically.
-
-🚀 [bright_green bold]SMALL WINS LEAD TO BIG VICTORIES:[/bright_green bold] Just commit to ONE more day. 
-Then another. Before you know it, you'll have a streak that amazes you. 
-Every coding legend started exactly where you are right now! 💎"""
