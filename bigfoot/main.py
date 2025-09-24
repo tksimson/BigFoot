@@ -66,10 +66,21 @@ def _determine_chart_settings(view: str, periods: int = None, total_commits: int
 @click.version_option(version="0.1.0")  
 @click.pass_context
 def cli(ctx):
-    """BigFoot - Personal Progress Tracker
+    """🔥 BigFoot - Personal Progress Tracker
     
     A lightweight CLI tool that motivates developers to code daily by tracking 
-    local git activity and providing instant motivational feedback.
+    local git activity and providing revolutionary 90-day historical insights.
+    
+    Features:
+    • 🔥 Dynamic streak tracking with fire animations
+    • 📊 90-day historical charts (daily/weekly/monthly views)
+    • 🏆 Achievement system with progress tracking
+    • 🎯 Smart goal monitoring with visual progress bars
+    • 📈 Activity heatmaps and trend analysis
+    • 💬 AI-powered motivational messaging with 177k+ variations
+    
+    Quick Start:
+    Just run 'bigfoot' to see your motivational dashboard with historical trends!
     """
     if ctx.invoked_subcommand is None:
         # Show dashboard when no command is provided
@@ -84,7 +95,12 @@ def cli(ctx):
 
 @cli.command()
 def doctor():
-    """Run diagnostics to check BigFoot configuration and database."""
+    """🔧 Run comprehensive system diagnostics and health checks
+    
+    Performs thorough diagnostics of BigFoot's configuration, database integrity,
+    git availability, and repository scanning capabilities. Perfect for troubleshooting
+    or verifying your setup is ready for optimal progress tracking.
+    """
     console = get_console()
     
     console.print("🔧 BigFoot Diagnostics")
@@ -131,10 +147,27 @@ def doctor():
 
 
 @cli.command()
-@click.option('--date', help='Track commits for specific date (YYYY-MM-DD)')
-@click.option('--search-paths', help='Comma-separated paths to search for repositories')
+@click.option('--date', help='📅 Track commits for specific date (YYYY-MM-DD format)')
+@click.option('--search-paths', help='🔍 Custom paths to scan: comma-separated directories')
 def track(date: str = None, search_paths: str = None):
-    """Track commits from local git repositories."""
+    """📊 Track today's commits and build your coding streak
+    
+    Scans local git repositories for commits, automatically detects your coding
+    activity, and updates your progress database. This is your daily ritual for
+    building momentum and maintaining streak consistency.
+    
+    🎯 FEATURES:
+    • Automatic git repository discovery across your system
+    • Multi-repository commit aggregation with deduplication  
+    • Real-time statistics (commits, lines added/deleted, files changed)
+    • Streak calculation and progress tracking
+    • Beautiful terminal output with progress visualization
+    
+    🔥 EXAMPLES:
+      bigfoot track                    # Track commits for today
+      bigfoot track --date 2024-01-15 # Track specific date
+      bigfoot track --search-paths "~/projects,~/work"  # Custom paths
+    """
     console = get_console()
     
     try:
@@ -213,23 +246,37 @@ def track(date: str = None, search_paths: str = None):
 
 
 @cli.command()
-@click.option('--days', required=True, type=int, help='Number of days to go back (required)')
-@click.option('--search-paths', help='Comma-separated paths to search for repositories')
-@click.option('--dry-run', is_flag=True, help='Show what would be processed without saving to database')
-@click.option('--force', is_flag=True, help='Force overwrite existing data (default: skip duplicates)')
-@click.option('--batch-size', default=10, type=int, help='Process repositories in batches (default: 10)')
-@click.option('--quiet', is_flag=True, help='Suppress progress output')
+@click.option('--days', required=True, type=int, help='⏰ Days to backfill (required): how far back to scan')
+@click.option('--search-paths', help='🔍 Custom repository paths: comma-separated directories')
+@click.option('--dry-run', is_flag=True, help='🔬 Preview mode: show what would be processed (no database changes)')
+@click.option('--force', is_flag=True, help='⚡ Force mode: overwrite existing data (default: skip duplicates)')
+@click.option('--batch-size', default=10, type=int, help='📦 Batch processing: repositories per batch (default: 10)')
+@click.option('--quiet', is_flag=True, help='🤫 Silent mode: suppress progress output')
 def backfill(days: int, search_paths: str = None, dry_run: bool = False, 
             force: bool = False, batch_size: int = 10, quiet: bool = False):
-    """Backfill historical git commits into the database.
+    """🔄 Backfill historical git commits for comprehensive progress analysis
     
-    This command scans your git repositories for historical commits and adds them
-    to BigFoot's database, enabling complete progress tracking and streak calculation.
+    Retroactively processes git commit history to populate your BigFoot database
+    with historical data. Perfect for new users who want to see their complete
+    coding journey or fill gaps in their tracking history.
     
-    Examples:
-      bigfoot backfill --days 30
-      bigfoot backfill --days 7 --dry-run
-      bigfoot backfill --days 60 --search-paths "/home/user/work,/home/user/personal"
+    🎯 FEATURES:
+    • Intelligent date range processing from present backwards
+    • Smart duplicate detection and prevention (unless --force used)
+    • Batch processing for optimal performance with large repositories
+    • Progress bars and detailed reporting throughout the process
+    • Dry-run mode for safe preview before committing changes
+    • Comprehensive error handling and recovery
+    
+    🔥 EXAMPLES:
+      bigfoot backfill --days 7           # Backfill last 7 days
+      bigfoot backfill --days 30 --dry-run    # Preview 30-day backfill
+      bigfoot backfill --days 90 --force      # Force overwrite 90 days
+      bigfoot backfill --days 14 --search-paths "~/work"  # Custom paths
+      
+    ⚠️  IMPORTANT:
+    This command processes historical data chronologically and may take time
+    for large date ranges. Use --dry-run first to estimate processing scope.
     """
     console = get_console()
     
@@ -294,24 +341,41 @@ def backfill(days: int, search_paths: str = None, dry_run: bool = False,
 
 
 @cli.command()
-@click.option('--days', default=30, type=int, help='Days to include in heatmap (default: 30)')
-@click.option('--goals', help='Custom goals in format "daily,weekly,monthly" (e.g. "5,35,100")')
+@click.option('--days', default=30, type=int, help='🗓️  Days to include in activity heatmap (default: 30)')
+@click.option('--goals', help='🎯 Custom goals: "daily,weekly,monthly" format (e.g. "5,35,100" commits)')
 @click.option('--view', default='auto', type=click.Choice(['auto', 'daily', 'weekly', 'monthly']), 
-              help='Historical chart view: auto (smart default), daily, weekly, or monthly')
-@click.option('--periods', type=int, help='Number of periods to show (overrides defaults)')
+              help='📊 Chart perspective: auto=smart, daily=90d detail, weekly=13w trends, monthly=3m overview')
+@click.option('--periods', type=int, help='📈 Custom period count (overrides smart defaults: 90d/13w/3m)')
 def dashboard(days: int = 30, goals: str = None, view: str = 'auto', periods: int = None):
-    """Show motivational dashboard with progress, streaks, and achievements.
+    """🚀 Show motivational dashboard with 90-day historical analysis
     
-    This is your personal coding motivation center! See your streaks, historical
-    trends, achievements, and get that Tony Robbins energy boost to keep coding daily.
+    This is your personal coding motivation command center! Experience revolutionary
+    90-day historical charts, dynamic streak tracking, achievement progress, and 
+    Tony Robbins-style motivational messaging that adapts to your performance.
     
-    Examples:
-      bigfoot                        # Show default dashboard (auto-selected view)
-      bigfoot dashboard              # Same as above
-      bigfoot --view weekly          # Show 13-week historical chart
-      bigfoot --view monthly         # Show 3-month historical chart
-      bigfoot --view daily --periods 60  # Show 60-day detailed history
-      bigfoot --goals "10,70,300"    # Custom daily,weekly,monthly goals
+    🎯 CHART VIEWS:
+    • auto (default): Smart selection based on your data maturity
+    • daily: 90-day commit-by-commit detailed history with trends  
+    • weekly: 13-week aggregated view for medium-term patterns
+    • monthly: 3-month overview for long-term performance analysis
+    
+    🔥 EXAMPLES:
+      bigfoot                          # Smart dashboard (auto-selected view)
+      bigfoot dashboard                # Same as above
+      
+      bigfoot dashboard --view daily   # 90-day detailed commit history
+      bigfoot dashboard --view weekly  # 13-week trend analysis  
+      bigfoot dashboard --view monthly # 3-month performance overview
+      
+      bigfoot dashboard --view daily --periods 60    # Custom 60-day range
+      bigfoot dashboard --goals "10,50,200"          # Custom goals
+      
+    📊 FEATURES:
+    • Beautiful ASCII charts with dynamic scaling and trend analysis
+    • Smart auto-selection chooses optimal view based on your data
+    • Growth percentages and performance level categorization
+    • Context-aware quick actions suggest relevant view switches
+    • Visual progress bars for daily, weekly, and monthly goals
     """
     console = get_console()
     
