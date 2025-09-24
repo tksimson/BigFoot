@@ -14,7 +14,7 @@ from rich.align import Align
 
 from .dashboard import (
     StreakData, MomentumMetrics, Achievement, GoalProgress, 
-    PerformanceLevel, DashboardAnalytics
+    PerformanceLevel, DashboardAnalytics, HistoricalData, HistoricalPeriod
 )
 
 
@@ -154,6 +154,190 @@ class MotivationalEngine:
         return f"{line1}\n{line2}"
 
 
+class HistoricalChartRenderer:
+    """Renders ASCII historical charts for commit data visualization."""
+    
+    def __init__(self, max_width: int = 60, max_height: int = 8):
+        """Initialize chart renderer.
+        
+        Args:
+            max_width: Maximum chart width in characters
+            max_height: Maximum chart height in bars
+        """
+        self.max_width = max_width
+        self.max_height = max_height
+    
+    def render_historical_chart(self, historical_data: HistoricalData) -> Panel:
+        """Render complete historical chart with analysis.
+        
+        Args:
+            historical_data: Historical data to visualize
+            
+        Returns:
+            Rich Panel with ASCII chart and trend analysis
+        """
+        if not historical_data.periods:
+            return Panel(
+                "📈 No commit data available for historical chart.\n"
+                "Run [cyan]bigfoot track[/cyan] to start building your history!",
+                title="📊 HISTORICAL TRENDS",
+                border_style="bright_blue"
+            )
+        
+        # Generate ASCII chart
+        chart_ascii = self._generate_ascii_chart(historical_data)
+        
+        # Generate trend summary
+        trend_summary = self._generate_trend_summary(historical_data)
+        
+        # Combine chart and summary
+        content = f"{chart_ascii}\n\n{trend_summary}"
+        
+        # Dynamic title based on chart type
+        title_map = {
+            'daily': '📈 DAILY COMMIT HISTORY',
+            'weekly': '📊 WEEKLY COMMIT TRENDS', 
+            'monthly': '📈 MONTHLY COMMIT OVERVIEW'
+        }
+        
+        title = title_map.get(historical_data.chart_type, '📊 COMMIT HISTORY')
+        
+        return Panel(
+            content,
+            title=f"[bright_blue bold]{title}[/bright_blue bold]",
+            border_style="bright_blue",
+            padding=(1, 2)
+        )
+    
+    def _generate_ascii_chart(self, historical_data: HistoricalData) -> str:
+        """Generate ASCII bar chart from historical data."""
+        periods = historical_data.periods
+        if not periods:
+            return "No data available"
+        
+        # Extract commit counts
+        commit_counts = [p.commits for p in periods]
+        max_commits = max(commit_counts) if commit_counts else 1
+        
+        # Handle edge case where all commits are 0
+        if max_commits == 0:
+            max_commits = 1
+        
+        # Calculate scaling
+        scale_factor = self.max_height / max_commits
+        
+        # Build chart from top to bottom
+        chart_lines = []
+        
+        for level in range(self.max_height, 0, -1):
+            # Create Y-axis label
+            y_value = int((level / self.max_height) * max_commits)
+            line = f"{y_value:3d} "
+            
+            # Add bars for each period
+            for commits in commit_counts:
+                scaled_height = commits * scale_factor
+                if scaled_height >= level:
+                    line += "██"
+                else:
+                    line += "  "
+                line += " "  # Spacing between bars
+            
+            chart_lines.append(line)
+        
+        # Add bottom axis
+        axis_line = "  0 └" + "─" * (len(commit_counts) * 3) + "┘"
+        chart_lines.append(axis_line)
+        
+        # Add period labels (smart sampling for readability)
+        label_line = self._generate_label_line(periods)
+        chart_lines.append(label_line)
+        
+        return "\n".join(chart_lines)
+    
+    def _generate_label_line(self, periods: List[HistoricalPeriod]) -> str:
+        """Generate smart period labels that fit the chart width."""
+        if not periods:
+            return ""
+        
+        total_periods = len(periods)
+        
+        # Smart label sampling based on number of periods
+        if total_periods <= 10:
+            # Show all labels for small datasets
+            step = 1
+        elif total_periods <= 30:
+            # Show every 3rd label for medium datasets
+            step = 3
+        elif total_periods <= 90:
+            # Show every 7th label for large datasets (roughly weekly)
+            step = 7
+        else:
+            # Show every 15th label for very large datasets
+            step = 15
+        
+        label_line = "    "  # Indent to align with chart
+        
+        for i, period in enumerate(periods):
+            if i % step == 0 or i == total_periods - 1:
+                # Show this label
+                label = period.label
+                if len(label) > 6:  # Truncate long labels
+                    label = label[:6]
+                label_line += f"{label:>6}"
+            else:
+                # Skip this label
+                label_line += "      "  # Empty space
+            
+            if i < total_periods - 1:
+                label_line += " "
+        
+        return label_line
+    
+    def _generate_trend_summary(self, historical_data: HistoricalData) -> str:
+        """Generate trend analysis summary."""
+        # Trend direction emoji and text
+        trend_map = {
+            'up': ('↗️', 'growth'),
+            'down': ('↘️', 'decline'), 
+            'stable': ('➡️', 'stable')
+        }
+        
+        trend_emoji, trend_text = trend_map.get(
+            historical_data.trend_direction, ('📊', 'analysis')
+        )
+        
+        # Build summary
+        summary_parts = []
+        
+        # Primary trend info
+        if historical_data.trend_direction == 'up':
+            summary_parts.append(
+                f"📊 Trend: {trend_emoji} +{historical_data.trend_percentage:.0f}% {trend_text}"
+            )
+        elif historical_data.trend_direction == 'down':
+            summary_parts.append(
+                f"📊 Trend: {trend_emoji} -{historical_data.trend_percentage:.0f}% {trend_text}"
+            )
+        else:
+            summary_parts.append(
+                f"📊 Trend: {trend_emoji} {trend_text} performance"
+            )
+        
+        # Key metrics
+        if historical_data.chart_type == 'daily':
+            summary_parts.append(f"Peak: {historical_data.peak_commits} commits")
+            summary_parts.append(f"Avg: {historical_data.average_commits:.1f}/day")
+        elif historical_data.chart_type == 'weekly':
+            summary_parts.append(f"Best week: {historical_data.peak_commits} commits")
+            summary_parts.append(f"Avg: {historical_data.average_commits:.1f}/week")
+        else:  # monthly
+            summary_parts.append(f"Best month: {historical_data.peak_commits} commits")
+            summary_parts.append(f"Total: {historical_data.total_commits} commits")
+        
+        return " | ".join(summary_parts)
+
+
 class DashboardRenderer:
     """Renders dashboard components using Rich library."""
     
@@ -165,6 +349,7 @@ class DashboardRenderer:
         """
         self.console = console or Console()
         self.motivational_engine = MotivationalEngine()
+        self.chart_renderer = HistoricalChartRenderer()
     
     def render_streak_header(self, streak_data: StreakData) -> Panel:
         """Render the main streak header with fire animation.
@@ -546,3 +731,14 @@ class DashboardRenderer:
             border_style="gold1",
             padding=(0, 1)  # Reduced padding for more compact display
         )
+    
+    def render_historical_chart(self, historical_data: HistoricalData) -> Panel:
+        """Render historical chart using the chart renderer.
+        
+        Args:
+            historical_data: Historical data to visualize
+            
+        Returns:
+            Rich Panel with historical chart
+        """
+        return self.chart_renderer.render_historical_chart(historical_data)

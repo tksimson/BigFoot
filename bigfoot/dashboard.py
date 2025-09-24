@@ -65,6 +65,29 @@ class GoalProgress:
     monthly_progress: float
 
 
+@dataclass 
+class HistoricalPeriod:
+    """Single time period data for historical charts."""
+    label: str              # Display label (e.g., "Mar 15", "W12", "March")
+    start_date: str         # ISO date string
+    end_date: str           # ISO date string  
+    commits: int            # Total commits in period
+    period_type: str        # 'daily', 'weekly', 'monthly'
+
+
+@dataclass
+class HistoricalData:
+    """Complete historical chart data and analysis."""
+    periods: List[HistoricalPeriod]
+    chart_type: str                    # 'daily', 'weekly', 'monthly'
+    total_commits: int
+    peak_commits: int
+    average_commits: float
+    trend_direction: str               # 'up', 'down', 'stable'
+    trend_percentage: float
+    date_range_label: str              # "Last 90 days", "Last 13 weeks", etc.
+
+
 class DashboardAnalytics:
     """Analytics engine for dashboard data and insights."""
     
@@ -388,3 +411,205 @@ class DashboardAnalytics:
         # Starting: new user or low activity
         else:
             return PerformanceLevel.STARTING
+    
+    def get_historical_data(self, chart_type: str = 'daily', periods: int = None) -> HistoricalData:
+        """Get historical commit data for charts.
+        
+        Args:
+            chart_type: 'daily', 'weekly', or 'monthly'
+            periods: Number of periods to include (auto-calculated if None)
+            
+        Returns:
+            HistoricalData with periods and analysis
+        """
+        if chart_type == 'daily':
+            return self._get_daily_historical_data(periods or 90)
+        elif chart_type == 'weekly':
+            return self._get_weekly_historical_data(periods or 13)
+        elif chart_type == 'monthly':
+            return self._get_monthly_historical_data(periods or 3)
+        else:
+            raise ValueError(f"Invalid chart_type: {chart_type}")
+    
+    def _get_daily_historical_data(self, days: int) -> HistoricalData:
+        """Get daily commit data for the last N days."""
+        end_date = date.today()
+        start_date = end_date - timedelta(days=days-1)
+        
+        # Get raw commit data
+        raw_data = self.database.get_commits_by_date_range(
+            start_date.isoformat(), 
+            end_date.isoformat()
+        )
+        
+        # Create date-to-commits mapping
+        commits_by_date = {}
+        for commit in raw_data:
+            date_key = commit['date']
+            commits_by_date[date_key] = commits_by_date.get(date_key, 0) + commit['count']
+        
+        # Build periods list
+        periods = []
+        current_date = start_date
+        
+        while current_date <= end_date:
+            date_str = current_date.isoformat()
+            commits_count = commits_by_date.get(date_str, 0)
+            
+            # Create readable label (e.g., "Mar 15")
+            label = current_date.strftime("%b %d")
+            
+            periods.append(HistoricalPeriod(
+                label=label,
+                start_date=date_str,
+                end_date=date_str,
+                commits=commits_count,
+                period_type='daily'
+            ))
+            
+            current_date += timedelta(days=1)
+        
+        return self._calculate_historical_metrics(periods, 'daily', f'Last {days} days')
+    
+    def _get_weekly_historical_data(self, weeks: int) -> HistoricalData:
+        """Get weekly commit data for the last N weeks."""
+        periods = []
+        
+        for week_offset in range(weeks):
+            week_end = date.today() - timedelta(days=week_offset*7)
+            week_start = week_end - timedelta(days=6)
+            
+            # Get commits for this week
+            weekly_commits = self.database.get_weekly_commits(
+                week_start.isoformat(), 
+                week_end.isoformat()
+            )
+            
+            # Create readable label (e.g., "W12")
+            week_number = weeks - week_offset
+            label = f"W{week_number}"
+            
+            periods.append(HistoricalPeriod(
+                label=label,
+                start_date=week_start.isoformat(),
+                end_date=week_end.isoformat(),
+                commits=weekly_commits,
+                period_type='weekly'
+            ))
+        
+        # Reverse to show oldest first
+        periods.reverse()
+        
+        return self._calculate_historical_metrics(periods, 'weekly', f'Last {weeks} weeks')
+    
+    def _get_monthly_historical_data(self, months: int) -> HistoricalData:
+        """Get monthly commit data for the last N months."""
+        periods = []
+        
+        current_date = date.today()
+        
+        for month_offset in range(months):
+            # Calculate target month
+            if month_offset == 0:
+                target_date = current_date
+            else:
+                target_date = current_date.replace(day=1) - timedelta(days=1)
+                for _ in range(month_offset - 1):
+                    target_date = target_date.replace(day=1) - timedelta(days=1)
+            
+            # Get first and last day of month
+            month_start = target_date.replace(day=1)
+            if month_offset == 0:
+                # Current month: up to today
+                month_end = current_date
+            else:
+                # Previous months: full month
+                next_month = month_start.replace(day=28) + timedelta(days=4)
+                month_end = (next_month - timedelta(days=next_month.day)).replace(day=1) + timedelta(days=31)
+                month_end = month_end.replace(day=1) - timedelta(days=1)
+            
+            # Get commits for this month
+            monthly_commits = sum(
+                commit['count'] for commit in self.database.get_commits_by_date_range(
+                    month_start.isoformat(),
+                    month_end.isoformat()
+                )
+            )
+            
+            # Create readable label (e.g., "March")
+            label = target_date.strftime("%B")
+            if months > 12:  # Include year if spanning multiple years
+                label = target_date.strftime("%b %Y")
+            
+            periods.append(HistoricalPeriod(
+                label=label,
+                start_date=month_start.isoformat(),
+                end_date=month_end.isoformat(),
+                commits=monthly_commits,
+                period_type='monthly'
+            ))
+        
+        # Reverse to show oldest first
+        periods.reverse()
+        
+        return self._calculate_historical_metrics(periods, 'monthly', f'Last {months} months')
+    
+    def _calculate_historical_metrics(self, periods: List[HistoricalPeriod], 
+                                    chart_type: str, date_range_label: str) -> HistoricalData:
+        """Calculate metrics and trends from historical periods."""
+        if not periods:
+            return HistoricalData(
+                periods=[],
+                chart_type=chart_type,
+                total_commits=0,
+                peak_commits=0,
+                average_commits=0.0,
+                trend_direction='stable',
+                trend_percentage=0.0,
+                date_range_label=date_range_label
+            )
+        
+        # Basic metrics
+        commit_counts = [p.commits for p in periods]
+        total_commits = sum(commit_counts)
+        peak_commits = max(commit_counts)
+        average_commits = total_commits / len(periods)
+        
+        # Calculate trend
+        trend_direction, trend_percentage = self._calculate_trend(commit_counts)
+        
+        return HistoricalData(
+            periods=periods,
+            chart_type=chart_type,
+            total_commits=total_commits,
+            peak_commits=peak_commits,
+            average_commits=average_commits,
+            trend_direction=trend_direction,
+            trend_percentage=trend_percentage,
+            date_range_label=date_range_label
+        )
+    
+    def _calculate_trend(self, values: List[int]) -> Tuple[str, float]:
+        """Calculate trend direction and percentage change."""
+        if len(values) < 2:
+            return 'stable', 0.0
+        
+        # Compare first half to second half for trend
+        midpoint = len(values) // 2
+        first_half_avg = sum(values[:midpoint]) / midpoint if midpoint > 0 else 0
+        second_half_avg = sum(values[midpoint:]) / (len(values) - midpoint)
+        
+        if first_half_avg == 0:
+            if second_half_avg > 0:
+                return 'up', 100.0  # Started from zero
+            else:
+                return 'stable', 0.0
+        
+        percentage_change = ((second_half_avg - first_half_avg) / first_half_avg) * 100
+        
+        if percentage_change > 10:
+            return 'up', percentage_change
+        elif percentage_change < -10:
+            return 'down', abs(percentage_change)
+        else:
+            return 'stable', abs(percentage_change)
