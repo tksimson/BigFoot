@@ -65,6 +65,27 @@ class GoalProgress:
     monthly_progress: float
 
 
+@dataclass
+class PersonalRecord:
+    """Personal best performance record."""
+    record_type: str  # 'daily_commits', 'daily_lines', 'weekly_commits', etc.
+    value: int
+    date: str
+    description: str
+
+
+@dataclass
+class HallOfFame:
+    """Hall of Fame with personal records and achievements."""
+    best_single_day_commits: PersonalRecord
+    best_single_day_lines: PersonalRecord
+    best_week_commits: PersonalRecord
+    current_day_commits: int
+    current_day_lines: int
+    days_until_record: int  # Days since last record was set
+    record_chase_progress: float  # How close to beating current record
+
+
 @dataclass 
 class HistoricalPeriod:
     """Single time period data for historical charts."""
@@ -215,6 +236,11 @@ class DashboardAnalytics:
         streak_data = self.get_streak_data(target_date)
         momentum = self.calculate_momentum(target_date)
         
+        # Get current daily performance for volume achievements
+        today_commits = self.database.get_total_commits_by_date(target_date)
+        today_lines = self._get_daily_lines(target_date)
+        hall_of_fame = self.get_hall_of_fame(target_date)
+        
         # Define achievements with progress calculation
         achievement_defs = [
             # Streak achievements
@@ -242,6 +268,50 @@ class DashboardAnalytics:
                 'id': 'code_warrior', 'name': 'Code Warrior', 'emoji': '🎖️',
                 'description': '30 day coding streak', 'threshold': 30,
                 'current': streak_data.current_streak
+            },
+            
+            # Volume achievements - Daily Commits
+            {
+                'id': 'commit_surge', 'name': 'Commit Surge', 'emoji': '💥',
+                'description': '5 commits in one day', 'threshold': 5,
+                'current': hall_of_fame.best_single_day_commits.value
+            },
+            {
+                'id': 'commit_storm', 'name': 'Commit Storm', 'emoji': '⛈️',
+                'description': '8 commits in one day', 'threshold': 8,
+                'current': hall_of_fame.best_single_day_commits.value
+            },
+            {
+                'id': 'commit_hurricane', 'name': 'Commit Hurricane', 'emoji': '🌪️',
+                'description': '12 commits in one day', 'threshold': 12,
+                'current': hall_of_fame.best_single_day_commits.value
+            },
+            {
+                'id': 'commit_legend', 'name': 'Commit Legend', 'emoji': '👑',
+                'description': '15 commits in one day', 'threshold': 15,
+                'current': hall_of_fame.best_single_day_commits.value
+            },
+            
+            # Volume achievements - Daily Lines
+            {
+                'id': 'line_crusher', 'name': 'Line Crusher', 'emoji': '💪',
+                'description': '1,000 lines in one day', 'threshold': 1000,
+                'current': hall_of_fame.best_single_day_lines.value
+            },
+            {
+                'id': 'code_beast', 'name': 'Code Beast', 'emoji': '🦁',
+                'description': '5,000 lines in one day', 'threshold': 5000,
+                'current': hall_of_fame.best_single_day_lines.value
+            },
+            {
+                'id': 'coding_machine', 'name': 'Coding Machine', 'emoji': '🤖',
+                'description': '10,000 lines in one day', 'threshold': 10000,
+                'current': hall_of_fame.best_single_day_lines.value
+            },
+            {
+                'id': 'line_god', 'name': 'Line God', 'emoji': '🚀',
+                'description': '50,000 lines in one day', 'threshold': 50000,
+                'current': hall_of_fame.best_single_day_lines.value
             },
             
             # Consistency achievements
@@ -272,6 +342,129 @@ class DashboardAnalytics:
             ))
         
         return achievements
+    
+    def _get_daily_lines(self, target_date: str) -> int:
+        """Get total lines of code changed on a specific date.
+        
+        Args:
+            target_date: Date to get lines for
+            
+        Returns:
+            Total lines added + deleted for the date
+        """
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.execute("""
+                SELECT SUM(lines_added + lines_deleted)
+                FROM commits
+                WHERE date = ?
+            """, (target_date,))
+            result = cursor.fetchone()
+            return result[0] if result[0] is not None else 0
+    
+    def get_hall_of_fame(self, target_date: str = None) -> HallOfFame:
+        """Get Hall of Fame with personal records and current performance.
+        
+        Args:
+            target_date: Reference date for calculations
+            
+        Returns:
+            HallOfFame with personal records and progress
+        """
+        if target_date is None:
+            target_date = date.today().isoformat()
+        
+        with sqlite3.connect(self.db_path) as conn:
+            # Get best single day for commits
+            cursor = conn.execute("""
+                SELECT date, SUM(count) as daily_commits
+                FROM commits 
+                GROUP BY date 
+                ORDER BY daily_commits DESC 
+                LIMIT 1
+            """)
+            best_commits_row = cursor.fetchone()
+            
+            if best_commits_row:
+                best_commits_record = PersonalRecord(
+                    record_type="daily_commits",
+                    value=best_commits_row[1],
+                    date=best_commits_row[0],
+                    description=f"{best_commits_row[1]} commits in one day"
+                )
+            else:
+                best_commits_record = PersonalRecord("daily_commits", 0, target_date, "No commits yet")
+            
+            # Get best single day for lines
+            cursor = conn.execute("""
+                SELECT date, SUM(lines_added + lines_deleted) as daily_lines
+                FROM commits 
+                GROUP BY date 
+                ORDER BY daily_lines DESC 
+                LIMIT 1
+            """)
+            best_lines_row = cursor.fetchone()
+            
+            if best_lines_row:
+                best_lines_record = PersonalRecord(
+                    record_type="daily_lines",
+                    value=best_lines_row[1],
+                    date=best_lines_row[0],
+                    description=f"{best_lines_row[1]:,} lines in one day"
+                )
+            else:
+                best_lines_record = PersonalRecord("daily_lines", 0, target_date, "No lines yet")
+            
+            # Get best week for commits
+            cursor = conn.execute("""
+                SELECT 
+                    date,
+                    SUM(count) OVER (
+                        ORDER BY date 
+                        ROWS BETWEEN 6 PRECEDING AND CURRENT ROW
+                    ) as week_commits
+                FROM (
+                    SELECT date, SUM(count) as count
+                    FROM commits
+                    GROUP BY date
+                    ORDER BY date
+                )
+                ORDER BY week_commits DESC
+                LIMIT 1
+            """)
+            best_week_row = cursor.fetchone()
+            
+            if best_week_row:
+                best_week_record = PersonalRecord(
+                    record_type="weekly_commits",
+                    value=best_week_row[1],
+                    date=best_week_row[0],
+                    description=f"{best_week_row[1]} commits in one week"
+                )
+            else:
+                best_week_record = PersonalRecord("weekly_commits", 0, target_date, "No weekly data yet")
+            
+            # Get current day performance
+            current_day_commits = self.database.get_total_commits_by_date(target_date)
+            current_day_lines = self._get_daily_lines(target_date)
+            
+            # Calculate days since last record (simplified - just check if today beat a record)
+            days_since_record = 0  # Could be expanded to calculate actual days
+            
+            # Calculate progress toward beating current record
+            if best_commits_record.value > 0:
+                record_chase_progress = min(1.0, current_day_commits / best_commits_record.value)
+            else:
+                record_chase_progress = 0.0
+        
+        return HallOfFame(
+            best_single_day_commits=best_commits_record,
+            best_single_day_lines=best_lines_record,
+            best_week_commits=best_week_record,
+            current_day_commits=current_day_commits,
+            current_day_lines=current_day_lines,
+            days_until_record=days_since_record,
+            record_chase_progress=record_chase_progress
+        )
     
     def get_goal_progress(self, daily_goal: int = 5, weekly_goal: int = 35, 
                          monthly_goal: int = 100, target_date: str = None) -> GoalProgress:

@@ -15,7 +15,8 @@ from rich import box
 
 from .dashboard import (
     StreakData, MomentumMetrics, Achievement, GoalProgress, 
-    PerformanceLevel, DashboardAnalytics, HistoricalData, HistoricalPeriod
+    PerformanceLevel, DashboardAnalytics, HistoricalData, HistoricalPeriod,
+    HallOfFame, PersonalRecord
 )
 
 
@@ -742,6 +743,108 @@ class DashboardRenderer:
             title="[gold1 bold]💬 MOTIVATIONAL BOOST[/gold1 bold]",
             border_style="gold1",
             padding=(0, 1),  # Reduced padding for more compact display
+            box=box.HEAVY
+        )
+    
+    def render_hall_of_fame(self, hall_of_fame: HallOfFame) -> Panel:
+        """Render Hall of Fame with personal records and current chase progress.
+        
+        Args:
+            hall_of_fame: HallOfFame data with personal records
+            
+        Returns:
+            Rich Panel with Hall of Fame display
+        """
+        from rich.console import Group
+        
+        content = []
+        
+        # Hall of Fame header
+        content.append("🏆 [bright_yellow bold]PERSONAL RECORDS[/bright_yellow bold]")
+        content.append("")
+        
+        # Records display
+        records_table = Table.grid(padding=1)
+        records_table.add_column(style="bright_cyan", width=4)
+        records_table.add_column(style="bright_white", width=25)
+        records_table.add_column(style="dim white")
+        
+        # Best single day commits
+        records_table.add_row(
+            "📊",
+            f"Most Commits/Day: {hall_of_fame.best_single_day_commits.value}",
+            f"({hall_of_fame.best_single_day_commits.date})"
+        )
+        
+        # Best single day lines
+        records_table.add_row(
+            "📝",
+            f"Most Lines/Day: {hall_of_fame.best_single_day_lines.value:,}",
+            f"({hall_of_fame.best_single_day_lines.date})"
+        )
+        
+        # Best week commits
+        records_table.add_row(
+            "⚡",
+            f"Best Week: {hall_of_fame.best_week_commits.value} commits",
+            f"(ending {hall_of_fame.best_week_commits.date})"
+        )
+        
+        content.append(records_table)
+        content.append("")
+        
+        # Today's performance vs records
+        content.append("🎯 [bright_green bold]TODAY'S CHASE[/bright_green bold]")
+        content.append("")
+        
+        # Progress toward beating commit record
+        if hall_of_fame.current_day_commits > 0:
+            commit_progress = min(1.0, hall_of_fame.current_day_commits / hall_of_fame.best_single_day_commits.value)
+            commit_bar_length = 25
+            commit_filled = int(commit_progress * commit_bar_length)
+            commit_empty = commit_bar_length - commit_filled
+            
+            commit_bar = "█" * commit_filled + "░" * commit_empty
+            content.append(f"  📊 Commits: {hall_of_fame.current_day_commits}/{hall_of_fame.best_single_day_commits.value}")
+            content.append(f"    {commit_bar} {commit_progress:.0%}")
+            
+            if hall_of_fame.current_day_commits >= hall_of_fame.best_single_day_commits.value:
+                content.append("    🔥 [bright_red bold]NEW RECORD![/bright_red bold] 🔥")
+            elif commit_progress > 0.8:
+                content.append("    ⚡ So close to a new record!")
+            elif commit_progress > 0.5:
+                content.append("    💪 Great progress toward the record!")
+        else:
+            content.append("  📊 No commits today yet - time to start!")
+        
+        content.append("")
+        
+        # Lines progress
+        if hall_of_fame.current_day_lines > 0:
+            lines_progress = min(1.0, hall_of_fame.current_day_lines / hall_of_fame.best_single_day_lines.value)
+            lines_bar_length = 25
+            lines_filled = int(lines_progress * lines_bar_length)
+            lines_empty = lines_bar_length - lines_filled
+            
+            lines_bar = "█" * lines_filled + "░" * lines_empty
+            content.append(f"  📝 Lines: {hall_of_fame.current_day_lines:,}/{hall_of_fame.best_single_day_lines.value:,}")
+            content.append(f"    {lines_bar} {lines_progress:.0%}")
+            
+            if hall_of_fame.current_day_lines >= hall_of_fame.best_single_day_lines.value:
+                content.append("    🚀 [bright_red bold]NEW LINES RECORD![/bright_red bold] 🚀")
+        else:
+            content.append("  📝 No lines today yet - let's code!")
+        
+        # Motivational closer
+        if hall_of_fame.current_day_commits == 0 and hall_of_fame.current_day_lines == 0:
+            content.append("")
+            content.append("💎 [bright_magenta]Your records are waiting to be broken![/bright_magenta]")
+        
+        return Panel(
+            Group(*content),
+            title="[bright_red bold]🏆 HALL OF FAME[/bright_red bold]",
+            border_style="bright_red",
+            padding=(1, 2),
             box=box.HEAVY
         )
     

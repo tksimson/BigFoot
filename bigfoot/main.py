@@ -405,6 +405,7 @@ def dashboard(days: int = 30, goals: str = None, view: str = 'auto', periods: in
         momentum = analytics.calculate_momentum()
         achievements = analytics.get_achievements()
         goal_progress = analytics.get_goal_progress(daily_goal, weekly_goal, monthly_goal)
+        hall_of_fame = analytics.get_hall_of_fame()
         heatmap_data = analytics.generate_heatmap_data(days)
         
         # Check if there's any data to display
@@ -447,16 +448,21 @@ def dashboard(days: int = 30, goals: str = None, view: str = 'auto', periods: in
             achievement_panel = renderer.render_achievements(achievements)
             console.print(achievement_panel)
         
-        # 4. Goals Progress
+        # 4. Hall of Fame (if user has significant history)
+        if total_commits > 10:  # Show Hall of Fame for users with some history
+            hall_of_fame_panel = renderer.render_hall_of_fame(hall_of_fame)
+            console.print(hall_of_fame_panel)
+        
+        # 5. Goals Progress
         goals_panel = renderer.render_goals_progress(goal_progress)  
         console.print(goals_panel)
         
-        # 5. Activity Heatmap (if requested or significant data)
+        # 6. Activity Heatmap (if requested or significant data)
         if days > 7 or total_commits > 20:
             heatmap_panel = renderer.render_heatmap(heatmap_data, days)
             console.print(heatmap_panel)
         
-        # 6. Motivational Message (always show)
+        # 7. Motivational Message (always show)
         motivational_panel = renderer.render_motivational_message(
             momentum.performance_level, streak_data, momentum
         )
