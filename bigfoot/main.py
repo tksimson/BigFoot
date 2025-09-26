@@ -426,20 +426,18 @@ def dashboard(days: int = 30, goals: str = None, view: str = 'auto', periods: in
             console.print()
             return
         
-        # Render dashboard sections
+        # Render dashboard sections (compact style with thick borders)
         console.print()
         
         # 1. Streak Header (always visible)
         streak_panel = renderer.render_streak_header(streak_data)
         console.print(streak_panel)
-        console.print()
         
         # 2. Historical Chart Section  
         chart_type, chart_periods = _determine_chart_settings(view, periods, total_commits)
         historical_data = analytics.get_historical_data(chart_type, chart_periods)
         historical_panel = renderer.render_historical_chart(historical_data)
         console.print(historical_panel)
-        console.print()
         
         # 3. Achievements (if any unlocked)
         unlocked_achievements = [a for a in achievements if a.unlocked_date is not None]
@@ -448,18 +446,15 @@ def dashboard(days: int = 30, goals: str = None, view: str = 'auto', periods: in
         if unlocked_achievements or in_progress_achievements:
             achievement_panel = renderer.render_achievements(achievements)
             console.print(achievement_panel)
-            console.print()
         
         # 4. Goals Progress
         goals_panel = renderer.render_goals_progress(goal_progress)  
         console.print(goals_panel)
-        console.print()
         
         # 5. Activity Heatmap (if requested or significant data)
         if days > 7 or total_commits > 20:
             heatmap_panel = renderer.render_heatmap(heatmap_data, days)
             console.print(heatmap_panel)
-            console.print()
         
         # 6. Motivational Message (always show)
         motivational_panel = renderer.render_motivational_message(

@@ -11,6 +11,7 @@ from rich.text import Text
 from rich.columns import Columns
 from rich.progress import Progress, BarColumn, TextColumn, MofNCompleteColumn
 from rich.align import Align
+from rich import box
 
 from .dashboard import (
     StreakData, MomentumMetrics, Achievement, GoalProgress, 
@@ -181,7 +182,8 @@ class HistoricalChartRenderer:
                 "📈 No commit data available for historical chart.\n"
                 "Run [cyan]bigfoot track[/cyan] to start building your history!",
                 title="📊 HISTORICAL TRENDS",
-                border_style="bright_blue"
+                border_style="bright_blue",
+                box=box.HEAVY
             )
         
         # Generate ASCII chart
@@ -206,7 +208,8 @@ class HistoricalChartRenderer:
             content,
             title=f"[bright_blue bold]{title}[/bright_blue bold]",
             border_style="bright_blue",
-            padding=(1, 2)
+            padding=(1, 2),
+            box=box.HEAVY
         )
     
     def _generate_ascii_chart(self, historical_data: HistoricalData) -> str:
@@ -408,7 +411,8 @@ class DashboardRenderer:
             Align.center(content),
             title=f"[{color} bold]{title}[/{color} bold]",
             border_style=color,
-            padding=(1, 2)
+            padding=(1, 2),
+            box=box.HEAVY
         )
     
     def render_momentum_section(self, momentum: MomentumMetrics) -> Panel:
@@ -489,7 +493,8 @@ class DashboardRenderer:
             "\n".join(content),
             title="[bright_blue bold]📊 MOMENTUM ANALYSIS[/bright_blue bold]",
             border_style="bright_blue",
-            padding=(1, 2)
+            padding=(1, 2),
+            box=box.HEAVY
         )
     
     def render_achievements(self, achievements: List[Achievement]) -> Panel:
@@ -549,7 +554,8 @@ class DashboardRenderer:
             content[0] if isinstance(content[0], str) else Columns(content) if len(content) > 1 else content[0],
             title="[bright_magenta bold]🏆 ACHIEVEMENTS[/bright_magenta bold]",
             border_style="bright_magenta",
-            padding=(1, 2)
+            padding=(1, 2),
+            box=box.HEAVY
         )
     
     def render_goals_progress(self, goals: GoalProgress) -> Panel:
@@ -615,7 +621,8 @@ class DashboardRenderer:
             "\n".join(content),
             title="[bright_yellow bold]🎯 GOALS & PROGRESS[/bright_yellow bold]",
             border_style="bright_yellow",
-            padding=(1, 2)
+            padding=(1, 2),
+            box=box.HEAVY
         )
     
     def render_heatmap(self, heatmap_data: Dict[str, int], days: int = 30) -> Panel:
@@ -642,7 +649,7 @@ class DashboardRenderer:
         # Organize data by weeks
         dates = sorted(heatmap_data.keys())
         if not dates:
-            return Panel("No data available for heatmap", title="📈 ACTIVITY HEATMAP")
+            return Panel("No data available for heatmap", title="📈 ACTIVITY HEATMAP", box=box.HEAVY)
         
         content = []
         content.append("📈 [bright_white bold]CODING ACTIVITY HEATMAP (Last 30 Days)[/bright_white bold]")
@@ -706,7 +713,8 @@ class DashboardRenderer:
             "\n".join(content),
             title="[bright_green bold]📈 ACTIVITY HEATMAP[/bright_green bold]",
             border_style="bright_green",
-            padding=(1, 2)
+            padding=(1, 2),
+            box=box.HEAVY
         )
     
     def render_motivational_message(self, performance_level: PerformanceLevel, 
@@ -729,7 +737,8 @@ class DashboardRenderer:
             message,
             title="[gold1 bold]💬 MOTIVATIONAL BOOST[/gold1 bold]",
             border_style="gold1",
-            padding=(0, 1)  # Reduced padding for more compact display
+            padding=(0, 1),  # Reduced padding for more compact display
+            box=box.HEAVY
         )
     
     def render_historical_chart(self, historical_data: HistoricalData) -> Panel:
