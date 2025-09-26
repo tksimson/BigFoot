@@ -550,8 +550,12 @@ class DashboardRenderer:
             content.append("🌟 Start coding to unlock your first achievements!")
             content.append("   Your coding journey begins with a single commit!")
         
+        # Create a renderable group from the content
+        from rich.console import Group
+        renderable_content = [item for item in content if item]
+        
         return Panel(
-            content[0] if isinstance(content[0], str) else Columns(content) if len(content) > 1 else content[0],
+            Group(*renderable_content),
             title="[bright_magenta bold]🏆 ACHIEVEMENTS[/bright_magenta bold]",
             border_style="bright_magenta",
             padding=(1, 2),

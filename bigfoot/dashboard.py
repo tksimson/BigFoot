@@ -205,6 +205,10 @@ class DashboardAnalytics:
         Returns:
             List of Achievement objects
         """
+        # Ensure target_date is set for unlocked_date field
+        if target_date is None:
+            target_date = date.today().isoformat()
+        
         achievements = []
         
         # Get current metrics
