@@ -630,93 +630,148 @@ class DashboardRenderer:
             box=box.HEAVY
         )
     
-    def render_heatmap(self, heatmap_data: Dict[str, int], days: int = 30) -> Panel:
-        """Render activity heatmap for the last N days.
+    def render_heatmap(self, heatmap_data: Dict[str, int], days: int = 90) -> Panel:
+        """Render GitHub-style activity heatmap with rectangular grid.
         
         Args:
             heatmap_data: Dictionary mapping dates to commit counts
-            days: Number of days to display
+            days: Number of days to display (default: 90 for ~13 weeks)
             
         Returns:
-            Rich Panel with heatmap visualization
+            Rich Panel with GitHub-style heatmap visualization
         """
-        def get_heat_emoji(commits: int) -> str:
-            """Get emoji based on commit count."""
+        def get_heat_style(commits: int) -> tuple[str, str]:
+            """Get color and character based on commit count - GitHub style."""
             if commits == 0:
-                return "⚫"  # No activity
+                return "■", "dim white"  # Empty/no activity
             elif commits <= 2:
-                return "🟡"  # Light activity
-            elif commits <= 7:
-                return "🟢"  # Good activity  
+                return "■", "green"      # Light activity
+            elif commits <= 5:
+                return "■", "bright_green"  # Medium activity
+            elif commits <= 8:
+                return "■", "bright_yellow"  # High activity
             else:
-                return "🔥"  # High activity
+                return "■", "bright_red"     # Intense activity
         
-        # Organize data by weeks
-        dates = sorted(heatmap_data.keys())
-        if not dates:
-            return Panel("No data available for heatmap", title="📈 ACTIVITY HEATMAP", box=box.HEAVY)
+        if not heatmap_data:
+            return Panel(
+                "📈 No activity data available yet.\n"
+                "Run [cyan]bigfoot track[/cyan] to start building your heatmap!",
+                title="📈 ACTIVITY HEATMAP",
+                box=box.HEAVY
+            )
         
         content = []
-        content.append("📈 [bright_white bold]CODING ACTIVITY HEATMAP (Last 30 Days)[/bright_white bold]")
+        
+        # Calculate date range for the grid
+        from datetime import date, timedelta
+        end_date = date.today()
+        start_date = end_date - timedelta(days=days-1)
+        
+        content.append(f"📈 [bright_white bold]CODING ACTIVITY - LAST {days} DAYS[/bright_white bold]")
         content.append("")
         
-        # Create heatmap grid
-        start_date = datetime.strptime(dates[0], '%Y-%m-%d').date()
-        end_date = datetime.strptime(dates[-1], '%Y-%m-%d').date()
+        # Build GitHub-style grid: 7 rows (days of week) x N columns (weeks)
+        # Each row represents a day of the week, columns are weeks going left to right
         
-        # Build week by week
-        content.append("    Mon Tue Wed Thu Fri Sat Sun")
+        # Calculate number of weeks to display
+        total_days = (end_date - start_date).days + 1
+        weeks_needed = (total_days + start_date.weekday()) // 7 + 1
         
-        current = start_date
-        week_num = 1
-        week_line = f"W{week_num}  "
-        day_count = 0
+        # Find the Monday of the first week to display
+        first_monday = start_date - timedelta(days=start_date.weekday())
         
-        # Pad to start on Monday
-        weekday = current.weekday()
-        for _ in range(weekday):
-            week_line += "    "
-            day_count += 1
+        # Day labels
+        day_labels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
         
-        while current <= end_date:
-            commits = heatmap_data.get(current.isoformat(), 0)
-            emoji = get_heat_emoji(commits)
-            week_line += f"{emoji}  "
-            day_count += 1
+        # Build grid row by row
+        for day_of_week in range(7):  # Monday=0 to Sunday=6
+            row = f"{day_labels[day_of_week]} "
             
-            # End of week
-            if day_count % 7 == 0:
-                content.append(week_line)
-                week_num += 1
-                week_line = f"W{week_num}  " if current < end_date else ""
-                day_count = 0
+            # Build each week column for this day of week
+            current_date = first_monday + timedelta(days=day_of_week)
             
-            current += timedelta(days=1)
-        
-        # Add final partial week
-        if day_count > 0:
-            content.append(week_line)
+            for week in range(weeks_needed):
+                week_date = current_date + timedelta(weeks=week)
+                
+                # Only show squares for dates within our range and not future dates
+                if start_date <= week_date <= end_date:
+                    commits = heatmap_data.get(week_date.isoformat(), 0)
+                    char, color = get_heat_style(commits)
+                    row += f"[{color}]{char}[/{color}] "
+                else:
+                    # Empty space for dates outside our range
+                    row += "  "
+            
+            content.append(row)
         
         content.append("")
-        content.append("Legend: 🔥 High (8+) 🟢 Good (3-7) 🟡 Light (1-2) ⚫ Rest")
+        
+        # Month labels (approximate, shown below the grid)
+        month_labels = []
+        current_month = None
+        label_positions = []
+        
+        current_date = first_monday
+        for week in range(weeks_needed):
+            week_date = current_date + timedelta(weeks=week)
+            if week_date.month != current_month and start_date <= week_date <= end_date:
+                current_month = week_date.month
+                month_name = week_date.strftime("%b")
+                # Position the month label
+                label_positions.append((week * 2 + 4, month_name))  # +4 for "Mon " offset
+        
+        # Create month label line
+        if label_positions:
+            label_line = " " * 4  # Offset for day labels
+            last_pos = 4
+            for pos, month in label_positions:
+                # Add spaces to position the month label
+                spaces_needed = pos - last_pos
+                if spaces_needed > 0:
+                    label_line += " " * spaces_needed
+                label_line += month
+                last_pos = pos + len(month)
+            
+            content.append(label_line)
+        
+        content.append("")
+        
+        # Legend with GitHub-style indicators
+        legend_line = "Less [dim white]■[/dim white] [green]■[/green] [bright_green]■[/bright_green] [bright_yellow]■[/bright_yellow] [bright_red]■[/bright_red] More"
+        content.append(legend_line)
         
         # Summary stats
         total_commits = sum(heatmap_data.values())
         active_days = sum(1 for count in heatmap_data.values() if count > 0)
-        consistency = int((active_days / len(heatmap_data)) * 100) if heatmap_data else 0
+        total_days_in_range = len([d for d in heatmap_data.keys() if start_date.isoformat() <= d <= end_date.isoformat()])
+        consistency = int((active_days / total_days_in_range) * 100) if total_days_in_range > 0 else 0
         
         content.append("")
-        content.append(f"📊 [bright_cyan]Summary:[/bright_cyan]")
-        content.append(f"  • Total Commits: {total_commits}")
-        content.append(f"  • Active Days: {active_days}/{len(heatmap_data)} ({consistency}%)")
+        content.append(f"📊 [bright_cyan bold]{total_commits}[/bright_cyan bold] contributions in the last {days} days")
+        content.append(f"🎯 [bright_yellow bold]{consistency}%[/bright_yellow bold] consistency rate ({active_days}/{total_days_in_range} active days)")
         
         if total_commits > 0:
-            avg_daily = total_commits / len(heatmap_data)
-            content.append(f"  • Daily Average: {avg_daily:.1f} commits")
+            avg_daily = total_commits / total_days_in_range if total_days_in_range > 0 else 0
+            content.append(f"📈 [bright_magenta bold]{avg_daily:.1f}[/bright_magenta bold] average commits per day")
+            
+            # Find best streak in the period
+            max_streak = 0
+            current_streak = 0
+            for i in range(total_days_in_range):
+                check_date = start_date + timedelta(days=i)
+                if heatmap_data.get(check_date.isoformat(), 0) > 0:
+                    current_streak += 1
+                    max_streak = max(max_streak, current_streak)
+                else:
+                    current_streak = 0
+            
+            if max_streak > 1:
+                content.append(f"🔥 [bright_red bold]{max_streak}[/bright_red bold] day longest streak in this period")
         
         return Panel(
-            "\n".join(content),
-            title="[bright_green bold]📈 ACTIVITY HEATMAP[/bright_green bold]",
+            "\n".join(str(line) for line in content),
+            title="[bright_green bold]📈 GITHUB-STYLE ACTIVITY HEATMAP[/bright_green bold]",
             border_style="bright_green",
             padding=(1, 2),
             box=box.HEAVY

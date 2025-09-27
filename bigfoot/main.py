@@ -341,12 +341,12 @@ def backfill(days: int, search_paths: str = None, dry_run: bool = False,
 
 
 @cli.command()
-@click.option('--days', default=30, type=int, help='🗓️  Days to include in activity heatmap (default: 30)')
+@click.option('--days', default=90, type=int, help='🗓️  Days to include in GitHub-style activity heatmap (default: 90)')
 @click.option('--goals', help='🎯 Custom goals: "daily,weekly,monthly" format (e.g. "5,35,100" commits)')
 @click.option('--view', default='auto', type=click.Choice(['auto', 'daily', 'weekly', 'monthly']), 
               help='📊 Chart perspective: auto=smart, daily=90d detail, weekly=13w trends, monthly=3m overview')
 @click.option('--periods', type=int, help='📈 Custom period count (overrides smart defaults: 90d/13w/3m)')
-def dashboard(days: int = 30, goals: str = None, view: str = 'auto', periods: int = None):
+def dashboard(days: int = 90, goals: str = None, view: str = 'auto', periods: int = None):
     """🚀 Show motivational dashboard with 90-day historical analysis
     
     This is your personal coding motivation command center! Experience revolutionary
@@ -406,7 +406,7 @@ def dashboard(days: int = 30, goals: str = None, view: str = 'auto', periods: in
         achievements = analytics.get_achievements()
         goal_progress = analytics.get_goal_progress(daily_goal, weekly_goal, monthly_goal)
         hall_of_fame = analytics.get_hall_of_fame()
-        heatmap_data = analytics.generate_heatmap_data(days)
+        heatmap_data = analytics.generate_heatmap_data(days)  # Use user-specified days for heatmap
         
         # Check if there's any data to display
         total_commits = sum(heatmap_data.values()) if heatmap_data else 0
@@ -457,9 +457,9 @@ def dashboard(days: int = 30, goals: str = None, view: str = 'auto', periods: in
         goals_panel = renderer.render_goals_progress(goal_progress)  
         console.print(goals_panel)
         
-        # 6. Activity Heatmap (if requested or significant data)
-        if days > 7 or total_commits > 20:
-            heatmap_panel = renderer.render_heatmap(heatmap_data, days)
+        # 6. Activity Heatmap (show GitHub-style heatmap for users with some history)
+        if total_commits > 5:  # Show for any user with minimal activity
+            heatmap_panel = renderer.render_heatmap(heatmap_data, days=days)  # Use user-specified days
             console.print(heatmap_panel)
         
         # 7. Motivational Message (always show)
