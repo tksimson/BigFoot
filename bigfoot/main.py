@@ -62,10 +62,123 @@ def _determine_chart_settings(view: str, periods: int = None, total_commits: int
     return chart_type, final_periods
 
 
+def _run_dashboard(days: int = 90, goals: str = None, view: str = 'auto', periods: int = None):
+    """Execute the dashboard functionality with provided options."""
+    console = get_console()
+    
+    try:
+        # Initialize components
+        database = Database()
+        analytics = DashboardAnalytics(database)
+        renderer = DashboardRenderer(console)
+        
+        # Parse custom goals if provided
+        daily_goal, weekly_goal, monthly_goal = 5, 35, 100  # defaults
+        if goals:
+            try:
+                goal_parts = [int(g.strip()) for g in goals.split(',')]
+                if len(goal_parts) >= 1:
+                    daily_goal = goal_parts[0]
+                if len(goal_parts) >= 2:
+                    weekly_goal = goal_parts[1] 
+                if len(goal_parts) >= 3:
+                    monthly_goal = goal_parts[2]
+            except (ValueError, IndexError):
+                show_error_panel("Invalid goals format. Use: daily,weekly,monthly (e.g. '5,35,100')")
+                sys.exit(1)
+        
+        # Get analytics data
+        streak_data = analytics.get_streak_data()
+        momentum = analytics.calculate_momentum()
+        achievements = analytics.get_achievements()
+        goal_progress = analytics.get_goal_progress(daily_goal, weekly_goal, monthly_goal)
+        hall_of_fame = analytics.get_hall_of_fame()
+        heatmap_data = analytics.generate_heatmap_data(days)  # Use user-specified days for heatmap
+        
+        # Check if there's any data to display
+        total_commits = sum(heatmap_data.values()) if heatmap_data else 0
+        if total_commits == 0:
+            # First time user experience
+            console.print()
+            console.print("🌟 [bright_yellow bold]Welcome to BigFoot![/bright_yellow bold] 🌟")
+            console.print()
+            console.print("It looks like you haven't tracked any commits yet. Let's get you started!")
+            console.print()
+            console.print("📋 [bright_cyan]Quick Start:[/bright_cyan]")
+            console.print("  1. Track today's commits:    [bright_green]bigfoot track[/bright_green]")
+            console.print("  2. Backfill recent history:  [bright_green]bigfoot backfill --days 7[/bright_green]")
+            console.print("  3. See your progress:        [bright_green]bigfoot[/bright_green] (this dashboard)")
+            console.print()
+            console.print("🚀 Your coding journey starts with the first commit you track!")
+            console.print("   Run [bright_green bold]bigfoot track[/bright_green bold] to begin building your streak!")
+            console.print()
+            return
+        
+        # Render dashboard sections (compact style with thick borders)
+        console.print()
+        
+        # 1. Streak Header (always visible)
+        streak_panel = renderer.render_streak_header(streak_data)
+        console.print(streak_panel)
+        
+        # 2. Historical Chart Section  
+        chart_type, chart_periods = _determine_chart_settings(view, periods, total_commits)
+        historical_data = analytics.get_historical_data(chart_type, chart_periods)
+        historical_panel = renderer.render_historical_chart(historical_data)
+        console.print(historical_panel)
+        
+        # 3. Achievements (if any unlocked)
+        unlocked_achievements = [a for a in achievements if a.unlocked_date is not None]
+        in_progress_achievements = [a for a in achievements if a.progress and a.progress > 0]
+        
+        if unlocked_achievements or in_progress_achievements:
+            achievement_panel = renderer.render_achievements(achievements)
+            console.print(achievement_panel)
+        
+        # 4. Hall of Fame (if user has significant history)
+        if total_commits > 10:  # Show Hall of Fame for users with some history
+            hall_of_fame_panel = renderer.render_hall_of_fame(hall_of_fame)
+            console.print(hall_of_fame_panel)
+        
+        # 5. Goals Progress
+        goals_panel = renderer.render_goals_progress(goal_progress)  
+        console.print(goals_panel)
+        
+        # 6. Activity Heatmap (show GitHub-style heatmap for users with some history)
+        if total_commits > 5:  # Show for any user with minimal activity
+            heatmap_panel = renderer.render_heatmap(heatmap_data, days=days)  # Use user-specified days
+            console.print(heatmap_panel)
+        
+        # 7. Motivational Message (always show)
+        motivational_panel = renderer.render_motivational_message(
+            momentum.performance_level, streak_data, momentum
+        )
+        console.print(motivational_panel)
+        
+        # Quick actions hint
+        console.print()
+        if chart_type == 'daily' and total_commits > 30:
+            console.print("⚡ [dim]Quick Actions:[/dim] [bright_green]bigfoot track[/bright_green] • [bright_cyan]bigfoot --view weekly[/bright_cyan] • [bright_magenta]bigfoot --view monthly[/bright_magenta]")
+        elif chart_type == 'weekly':
+            console.print("⚡ [dim]Quick Actions:[/dim] [bright_green]bigfoot track[/bright_green] • [bright_cyan]bigfoot --view daily[/bright_cyan] • [bright_magenta]bigfoot --view monthly[/bright_magenta]")
+        else:
+            console.print("⚡ [dim]Quick Actions:[/dim] [bright_green]bigfoot track[/bright_green] • [bright_cyan]bigfoot backfill --days 7[/bright_cyan] • [bright_yellow]bigfoot doctor[/bright_yellow]")
+        console.print()
+        
+    except Exception as e:
+        show_error_panel(f"Dashboard error: {str(e)}")
+        sys.exit(1)
+
+
 @click.group(invoke_without_command=True)
-@click.version_option(version="0.1.0")  
+@click.version_option(version="0.1.0")
+@click.option('--days', default=90, type=int, help='🗓️  Days to include in GitHub-style activity heatmap (default: 90)')
+@click.option('--goals', help='🎯 Custom goals: "daily,weekly,monthly" format (e.g. "5,35,100" commits)')
+@click.option('--view', default='auto', type=click.Choice(['auto', 'daily', 'weekly', 'monthly']), 
+              help='📊 Chart perspective: auto=smart, daily=90d detail, weekly=13w trends, monthly=3m overview')
+@click.option('--periods', type=int, help='📈 Custom period count (overrides smart defaults: 90d/13w/3m)')
 @click.pass_context
-def cli(ctx):
+def cli(ctx, days: int = 90, goals: str = None, view: str = 'auto', periods: int = None):
     """🔥 BigFoot - Personal Progress Tracker
     
     A lightweight CLI tool that motivates developers to code daily by tracking 
@@ -114,7 +227,7 @@ def cli(ctx):
     """
     if ctx.invoked_subcommand is None:
         # Show dashboard when no command is provided
-        ctx.invoke(dashboard)
+        _run_dashboard(days, goals, view, periods)
 
 
 
@@ -369,148 +482,6 @@ def backfill(days: int, search_paths: str = None, dry_run: bool = False,
         show_error_panel(f"Backfill failed: {e}")
         sys.exit(1)
 
-
-@cli.command()
-@click.option('--days', default=90, type=int, help='🗓️  Days to include in GitHub-style activity heatmap (default: 90)')
-@click.option('--goals', help='🎯 Custom goals: "daily,weekly,monthly" format (e.g. "5,35,100" commits)')
-@click.option('--view', default='auto', type=click.Choice(['auto', 'daily', 'weekly', 'monthly']), 
-              help='📊 Chart perspective: auto=smart, daily=90d detail, weekly=13w trends, monthly=3m overview')
-@click.option('--periods', type=int, help='📈 Custom period count (overrides smart defaults: 90d/13w/3m)')
-def dashboard(days: int = 90, goals: str = None, view: str = 'auto', periods: int = None):
-    """🚀 Show motivational dashboard with 90-day historical analysis
-    
-    This is your personal coding motivation command center! Experience revolutionary
-    90-day historical charts, dynamic streak tracking, achievement progress, and 
-    Tony Robbins-style motivational messaging that adapts to your performance.
-    
-    🎯 CHART VIEWS:
-    • auto (default): Smart selection based on your data maturity
-    • daily: 90-day commit-by-commit detailed history with trends  
-    • weekly: 13-week aggregated view for medium-term patterns
-    • monthly: 3-month overview for long-term performance analysis
-    
-    🔥 EXAMPLES:
-      bigfoot                          # Smart dashboard (auto-selected view)
-      bigfoot dashboard                # Same as above
-      
-      bigfoot dashboard --view daily   # 90-day detailed commit history
-      bigfoot dashboard --view weekly  # 13-week trend analysis  
-      bigfoot dashboard --view monthly # 3-month performance overview
-      
-      bigfoot dashboard --view daily --periods 60    # Custom 60-day range
-      bigfoot dashboard --goals "10,50,200"          # Custom goals
-      
-    📊 FEATURES:
-    • Beautiful ASCII charts with dynamic scaling and trend analysis
-    • Smart auto-selection chooses optimal view based on your data
-    • Growth percentages and performance level categorization
-    • Context-aware quick actions suggest relevant view switches
-    • Visual progress bars for daily, weekly, and monthly goals
-    """
-    console = get_console()
-    
-    try:
-        # Initialize components
-        database = Database()
-        analytics = DashboardAnalytics(database)
-        renderer = DashboardRenderer(console)
-        
-        # Parse custom goals if provided
-        daily_goal, weekly_goal, monthly_goal = 5, 35, 100  # defaults
-        if goals:
-            try:
-                goal_parts = [int(g.strip()) for g in goals.split(',')]
-                if len(goal_parts) >= 1:
-                    daily_goal = goal_parts[0]
-                if len(goal_parts) >= 2:
-                    weekly_goal = goal_parts[1] 
-                if len(goal_parts) >= 3:
-                    monthly_goal = goal_parts[2]
-            except (ValueError, IndexError):
-                show_error_panel("Invalid goals format. Use: daily,weekly,monthly (e.g. '5,35,100')")
-                sys.exit(1)
-        
-        # Get analytics data
-        streak_data = analytics.get_streak_data()
-        momentum = analytics.calculate_momentum()
-        achievements = analytics.get_achievements()
-        goal_progress = analytics.get_goal_progress(daily_goal, weekly_goal, monthly_goal)
-        hall_of_fame = analytics.get_hall_of_fame()
-        heatmap_data = analytics.generate_heatmap_data(days)  # Use user-specified days for heatmap
-        
-        # Check if there's any data to display
-        total_commits = sum(heatmap_data.values()) if heatmap_data else 0
-        if total_commits == 0:
-            # First time user experience
-            console.print()
-            console.print("🌟 [bright_yellow bold]Welcome to BigFoot![/bright_yellow bold] 🌟")
-            console.print()
-            console.print("It looks like you haven't tracked any commits yet. Let's get you started!")
-            console.print()
-            console.print("📋 [bright_cyan]Quick Start:[/bright_cyan]")
-            console.print("  1. Track today's commits:    [bright_green]bigfoot track[/bright_green]")
-            console.print("  2. Backfill recent history:  [bright_green]bigfoot backfill --days 7[/bright_green]")
-            console.print("  3. See your progress:        [bright_green]bigfoot[/bright_green] (this dashboard)")
-            console.print()
-            console.print("🚀 Your coding journey starts with the first commit you track!")
-            console.print("   Run [bright_green bold]bigfoot track[/bright_green bold] to begin building your streak!")
-            console.print()
-            return
-        
-        # Render dashboard sections (compact style with thick borders)
-        console.print()
-        
-        # 1. Streak Header (always visible)
-        streak_panel = renderer.render_streak_header(streak_data)
-        console.print(streak_panel)
-        
-        # 2. Historical Chart Section  
-        chart_type, chart_periods = _determine_chart_settings(view, periods, total_commits)
-        historical_data = analytics.get_historical_data(chart_type, chart_periods)
-        historical_panel = renderer.render_historical_chart(historical_data)
-        console.print(historical_panel)
-        
-        # 3. Achievements (if any unlocked)
-        unlocked_achievements = [a for a in achievements if a.unlocked_date is not None]
-        in_progress_achievements = [a for a in achievements if a.progress and a.progress > 0]
-        
-        if unlocked_achievements or in_progress_achievements:
-            achievement_panel = renderer.render_achievements(achievements)
-            console.print(achievement_panel)
-        
-        # 4. Hall of Fame (if user has significant history)
-        if total_commits > 10:  # Show Hall of Fame for users with some history
-            hall_of_fame_panel = renderer.render_hall_of_fame(hall_of_fame)
-            console.print(hall_of_fame_panel)
-        
-        # 5. Goals Progress
-        goals_panel = renderer.render_goals_progress(goal_progress)  
-        console.print(goals_panel)
-        
-        # 6. Activity Heatmap (show GitHub-style heatmap for users with some history)
-        if total_commits > 5:  # Show for any user with minimal activity
-            heatmap_panel = renderer.render_heatmap(heatmap_data, days=days)  # Use user-specified days
-            console.print(heatmap_panel)
-        
-        # 7. Motivational Message (always show)
-        motivational_panel = renderer.render_motivational_message(
-            momentum.performance_level, streak_data, momentum
-        )
-        console.print(motivational_panel)
-        
-        # Quick actions hint
-        console.print()
-        if chart_type == 'daily' and total_commits > 30:
-            console.print("⚡ [dim]Quick Actions:[/dim] [bright_green]bigfoot track[/bright_green] • [bright_cyan]bigfoot --view weekly[/bright_cyan] • [bright_magenta]bigfoot --view monthly[/bright_magenta]")
-        elif chart_type == 'weekly':
-            console.print("⚡ [dim]Quick Actions:[/dim] [bright_green]bigfoot track[/bright_green] • [bright_cyan]bigfoot --view daily[/bright_cyan] • [bright_magenta]bigfoot --view monthly[/bright_magenta]")
-        else:
-            console.print("⚡ [dim]Quick Actions:[/dim] [bright_green]bigfoot track[/bright_green] • [bright_cyan]bigfoot backfill --days 7[/bright_cyan] • [bright_yellow]bigfoot doctor[/bright_yellow]")
-        console.print()
-        
-    except Exception as e:
-        show_error_panel(f"Dashboard failed to load: {e}")
-        sys.exit(1)
 
 
 if __name__ == '__main__':
