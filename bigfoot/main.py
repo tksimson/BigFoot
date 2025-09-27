@@ -71,15 +71,45 @@ def cli(ctx):
     A lightweight CLI tool that motivates developers to code daily by tracking 
     local git activity and providing revolutionary 90-day historical insights.
     
-    Features:
+    🚀 FEATURES:
     • 🔥 Dynamic streak tracking with fire animations
     • 📊 90-day historical charts (daily/weekly/monthly views)
-    • 🏆 Achievement system with progress tracking
+    • 🏆 Achievement system with volume-based rewards
+    • 🏆 Hall of Fame with personal records tracking
     • 🎯 Smart goal monitoring with visual progress bars
-    • 📈 Activity heatmaps and trend analysis
+    • 📈 GitHub-style activity heatmaps (90+ days)
     • 💬 AI-powered motivational messaging with 177k+ variations
     
-    Quick Start:
+    📋 COMMAND EXAMPLES:
+    
+    \b
+    bigfoot                              # Default dashboard
+    bigfoot --days 30                    # 30-day heatmap
+    bigfoot --days 365                   # Full year view
+    bigfoot --view daily                 # 90-day detailed history
+    bigfoot --view weekly                # 13-week trends
+    bigfoot --view monthly               # 3-month overview
+    bigfoot --goals "10,70,300"          # Custom goals
+    bigfoot --periods 60                 # Custom periods
+    \b
+    
+    \b
+    bigfoot track                        # Track today's commits
+    bigfoot track --date 2024-01-15     # Track specific date
+    bigfoot track --search-paths "~/work"  # Custom repo paths
+    \b
+    
+    \b
+    bigfoot backfill --days 7            # Backfill 7 days
+    bigfoot backfill --days 30 --dry-run # Preview mode
+    bigfoot backfill --days 90 --force   # Force overwrite
+    \b
+    
+    \b
+    bigfoot doctor                       # System diagnostics
+    \b
+    
+    ⚡ QUICK START:
     Just run 'bigfoot' to see your motivational dashboard with historical trends!
     """
     if ctx.invoked_subcommand is None:
