@@ -631,14 +631,14 @@ class DashboardRenderer:
         )
     
     def render_heatmap(self, heatmap_data: Dict[str, int], days: int = 90) -> Panel:
-        """Render GitHub-style activity heatmap with rectangular grid.
+        """Render activity heatmap with rectangular grid.
         
         Args:
             heatmap_data: Dictionary mapping dates to commit counts
             days: Number of days to display (default: 90 for ~13 weeks)
             
         Returns:
-            Rich Panel with GitHub-style heatmap visualization
+            Rich Panel with activity heatmap visualization
         """
         def get_heat_style(commits: int) -> tuple[str, str]:
             """Get color and character based on commit count - GitHub style."""
@@ -771,7 +771,7 @@ class DashboardRenderer:
         
         return Panel(
             "\n".join(str(line) for line in content),
-            title="[bright_green bold]📈 GITHUB-STYLE ACTIVITY HEATMAP[/bright_green bold]",
+            title="[bright_green bold]📈 HEATMAP[/bright_green bold]",
             border_style="bright_green",
             padding=(1, 2),
             box=box.HEAVY
@@ -818,82 +818,60 @@ class DashboardRenderer:
         content.append("🏆 [bright_yellow bold]PERSONAL RECORDS[/bright_yellow bold]")
         content.append("")
         
-        # Records display
-        records_table = Table.grid(padding=1)
-        records_table.add_column(style="bright_cyan", width=4)
-        records_table.add_column(style="bright_white", width=25)
-        records_table.add_column(style="dim white")
-        
-        # Best single day commits
-        records_table.add_row(
-            "📊",
-            f"Most Commits/Day: {hall_of_fame.best_single_day_commits.value}",
-            f"({hall_of_fame.best_single_day_commits.date})"
-        )
-        
-        # Best single day lines
-        records_table.add_row(
-            "📝",
-            f"Most Lines/Day: {hall_of_fame.best_single_day_lines.value:,}",
-            f"({hall_of_fame.best_single_day_lines.date})"
-        )
-        
-        # Best week commits
-        records_table.add_row(
-            "⚡",
-            f"Best Week: {hall_of_fame.best_week_commits.value} commits",
-            f"(ending {hall_of_fame.best_week_commits.date})"
-        )
-        
-        content.append(records_table)
+        # Records display - compact format without table padding
+        content.append(f"📊    Most Commits/Day: {hall_of_fame.best_single_day_commits.value}      ({hall_of_fame.best_single_day_commits.date})")
+        content.append(f"📝    Most Lines/Day: {hall_of_fame.best_single_day_lines.value:,}    ({hall_of_fame.best_single_day_lines.date})")
+        content.append(f"⚡    Best Week: {hall_of_fame.best_week_commits.value} commits     (ending {hall_of_fame.best_week_commits.date})")
         content.append("")
         
-        # Today's performance vs records
+        # Today's performance vs records - compact format like GOALS & PROGRESS
         content.append("🎯 [bright_green bold]TODAY'S CHASE[/bright_green bold]")
         content.append("")
         
-        # Progress toward beating commit record
-        if hall_of_fame.current_day_commits > 0:
-            commit_progress = min(1.0, hall_of_fame.current_day_commits / hall_of_fame.best_single_day_commits.value)
-            commit_bar_length = 25
-            commit_filled = int(commit_progress * commit_bar_length)
-            commit_empty = commit_bar_length - commit_filled
+        # Helper function to create compact progress bar with status
+        def create_chase_bar(current: int, record: int, width: int = 30) -> tuple[str, str]:
+            if record == 0:
+                return "░" * width, "No record yet!"
             
-            commit_bar = "█" * commit_filled + "░" * commit_empty
-            content.append(f"  📊 Commits: {hall_of_fame.current_day_commits}/{hall_of_fame.best_single_day_commits.value}")
-            content.append(f"    {commit_bar} {commit_progress:.0%}")
+            progress = min(1.0, current / record)
+            filled = int(progress * width)
+            empty = width - filled
             
-            if hall_of_fame.current_day_commits >= hall_of_fame.best_single_day_commits.value:
-                content.append("    🔥 [bright_red bold]NEW RECORD![/bright_red bold] 🔥")
-            elif commit_progress > 0.8:
-                content.append("    ⚡ So close to a new record!")
-            elif commit_progress > 0.5:
-                content.append("    💪 Great progress toward the record!")
-        else:
-            content.append("  📊 No commits today yet - time to start!")
+            # Determine bar color and status message
+            if progress >= 1.0:
+                bar_color = "bright_red"
+                status = "NEW RECORD! 🔥"
+            elif progress >= 0.8:
+                bar_color = "yellow"
+                status = "So close!"
+            elif progress >= 0.5:
+                bar_color = "blue"
+                status = "Great progress!"
+            elif progress > 0:
+                bar_color = "green"
+                status = "Keep going!"
+            else:
+                bar_color = "dim white"
+                status = "Start chasing!"
+            
+            bar = "█" * filled + "░" * empty
+            return f"[{bar_color}]{bar}[/{bar_color}]", status
         
-        content.append("")
+        # Commits chase - compact single line
+        commit_bar, commit_status = create_chase_bar(
+            hall_of_fame.current_day_commits, 
+            hall_of_fame.best_single_day_commits.value
+        )
+        commit_pct = int((hall_of_fame.current_day_commits / hall_of_fame.best_single_day_commits.value * 100) if hall_of_fame.best_single_day_commits.value > 0 else 0)
+        content.append(f"Commits:  {commit_bar} {hall_of_fame.current_day_commits}/{hall_of_fame.best_single_day_commits.value} ({commit_pct}%) {commit_status}")
         
-        # Lines progress
-        if hall_of_fame.current_day_lines > 0:
-            lines_progress = min(1.0, hall_of_fame.current_day_lines / hall_of_fame.best_single_day_lines.value)
-            lines_bar_length = 25
-            lines_filled = int(lines_progress * lines_bar_length)
-            lines_empty = lines_bar_length - lines_filled
-            
-            lines_bar = "█" * lines_filled + "░" * lines_empty
-            content.append(f"  📝 Lines: {hall_of_fame.current_day_lines:,}/{hall_of_fame.best_single_day_lines.value:,}")
-            content.append(f"    {lines_bar} {lines_progress:.0%}")
-            
-            if hall_of_fame.current_day_lines >= hall_of_fame.best_single_day_lines.value:
-                content.append("    🚀 [bright_red bold]NEW LINES RECORD![/bright_red bold] 🚀")
-        else:
-            content.append("  📝 No lines today yet - let's code!")
-        
-        # Motivational closer
-        if hall_of_fame.current_day_commits == 0 and hall_of_fame.current_day_lines == 0:
-            content.append("")
-            content.append("💎 [bright_magenta]Your records are waiting to be broken![/bright_magenta]")
+        # Lines chase - compact single line
+        lines_bar, lines_status = create_chase_bar(
+            hall_of_fame.current_day_lines,
+            hall_of_fame.best_single_day_lines.value
+        )
+        lines_pct = int((hall_of_fame.current_day_lines / hall_of_fame.best_single_day_lines.value * 100) if hall_of_fame.best_single_day_lines.value > 0 else 0)
+        content.append(f"Lines:    {lines_bar} {hall_of_fame.current_day_lines:,}/{hall_of_fame.best_single_day_lines.value:,} ({lines_pct}%) {lines_status}")
         
         return Panel(
             Group(*content),

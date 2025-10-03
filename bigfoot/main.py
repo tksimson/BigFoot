@@ -4,7 +4,6 @@ import click
 import os
 import sys
 from datetime import date, timedelta
-from typing import Tuple
 from rich.console import Console
 from rich.panel import Panel
 from rich.text import Text
@@ -25,44 +24,7 @@ from .utils import (
 )
 
 
-def _determine_chart_settings(view: str, periods: int = None, total_commits: int = 0) -> Tuple[str, int]:
-    """Determine optimal chart type and period count based on user preference and data.
-    
-    Args:
-        view: User's preferred view ('auto', 'daily', 'weekly', 'monthly')
-        periods: User's preferred period count (overrides defaults)
-        total_commits: Total commits available for smart auto-selection
-        
-    Returns:
-        Tuple of (chart_type, period_count)
-    """
-    if view == 'auto':
-        # Smart auto-selection based on data availability
-        if total_commits < 14:
-            chart_type = 'daily'
-            default_periods = 30
-        elif total_commits < 60:
-            chart_type = 'weekly'  
-            default_periods = 13
-        else:
-            chart_type = 'daily'  # Default to daily for good detail
-            default_periods = 90
-    else:
-        chart_type = view
-        # Set appropriate defaults for each view type
-        default_periods = {
-            'daily': 90,
-            'weekly': 13, 
-            'monthly': 3
-        }.get(chart_type, 30)
-    
-    # Use user-specified periods if provided, otherwise use smart default
-    final_periods = periods if periods is not None else default_periods
-    
-    return chart_type, final_periods
-
-
-def _run_dashboard(days: int = 90, goals: str = None, view: str = 'auto', periods: int = None):
+def _run_dashboard(days: int = 90, goals: str = None):
     """Execute the dashboard functionality with provided options."""
     console = get_console()
     
@@ -121,13 +83,7 @@ def _run_dashboard(days: int = 90, goals: str = None, view: str = 'auto', period
         streak_panel = renderer.render_streak_header(streak_data)
         console.print(streak_panel)
         
-        # 2. Historical Chart Section  
-        chart_type, chart_periods = _determine_chart_settings(view, periods, total_commits)
-        historical_data = analytics.get_historical_data(chart_type, chart_periods)
-        historical_panel = renderer.render_historical_chart(historical_data)
-        console.print(historical_panel)
-        
-        # 3. Achievements (if any unlocked)
+        # 2. Achievements (if any unlocked)
         unlocked_achievements = [a for a in achievements if a.unlocked_date is not None]
         in_progress_achievements = [a for a in achievements if a.progress and a.progress > 0]
         
@@ -135,21 +91,21 @@ def _run_dashboard(days: int = 90, goals: str = None, view: str = 'auto', period
             achievement_panel = renderer.render_achievements(achievements)
             console.print(achievement_panel)
         
-        # 4. Hall of Fame (if user has significant history)
+        # 3. Hall of Fame (if user has significant history)
         if total_commits > 10:  # Show Hall of Fame for users with some history
             hall_of_fame_panel = renderer.render_hall_of_fame(hall_of_fame)
             console.print(hall_of_fame_panel)
         
-        # 5. Goals Progress
+        # 4. Goals Progress
         goals_panel = renderer.render_goals_progress(goal_progress)  
         console.print(goals_panel)
         
-        # 6. Activity Heatmap (show GitHub-style heatmap for users with some history)
+        # 5. Activity Heatmap (show heatmap for users with some history)
         if total_commits > 5:  # Show for any user with minimal activity
             heatmap_panel = renderer.render_heatmap(heatmap_data, days=days)  # Use user-specified days
             console.print(heatmap_panel)
         
-        # 7. Motivational Message (always show)
+        # 6. Motivational Message (always show)
         motivational_panel = renderer.render_motivational_message(
             momentum.performance_level, streak_data, momentum
         )
@@ -157,12 +113,7 @@ def _run_dashboard(days: int = 90, goals: str = None, view: str = 'auto', period
         
         # Quick actions hint
         console.print()
-        if chart_type == 'daily' and total_commits > 30:
-            console.print("⚡ [dim]Quick Actions:[/dim] [bright_green]bigfoot track[/bright_green] • [bright_cyan]bigfoot --view weekly[/bright_cyan] • [bright_magenta]bigfoot --view monthly[/bright_magenta]")
-        elif chart_type == 'weekly':
-            console.print("⚡ [dim]Quick Actions:[/dim] [bright_green]bigfoot track[/bright_green] • [bright_cyan]bigfoot --view daily[/bright_cyan] • [bright_magenta]bigfoot --view monthly[/bright_magenta]")
-        else:
-            console.print("⚡ [dim]Quick Actions:[/dim] [bright_green]bigfoot track[/bright_green] • [bright_cyan]bigfoot backfill --days 7[/bright_cyan] • [bright_yellow]bigfoot doctor[/bright_yellow]")
+        console.print("⚡ [dim]Quick Actions:[/dim] [bright_green]bigfoot track[/bright_green] • [bright_cyan]bigfoot backfill --days 7[/bright_cyan] • [bright_yellow]bigfoot doctor[/bright_yellow]")
         console.print()
         
     except Exception as e:
@@ -172,13 +123,10 @@ def _run_dashboard(days: int = 90, goals: str = None, view: str = 'auto', period
 
 @click.group(invoke_without_command=True)
 @click.version_option(version="0.1.0")
-@click.option('--days', default=90, type=int, help='🗓️  Days to include in GitHub-style activity heatmap (default: 90)')
+@click.option('--days', default=90, type=int, help='🗓️  Days to include in activity heatmap (default: 90)')
 @click.option('--goals', help='🎯 Custom goals: "daily,weekly,monthly" format (e.g. "5,35,100" commits)')
-@click.option('--view', default='auto', type=click.Choice(['auto', 'daily', 'weekly', 'monthly']), 
-              help='📊 Chart perspective: auto=smart, daily=90d detail, weekly=13w trends, monthly=3m overview')
-@click.option('--periods', type=int, help='📈 Custom period count (overrides smart defaults: 90d/13w/3m)')
 @click.pass_context
-def cli(ctx, days: int = 90, goals: str = None, view: str = 'auto', periods: int = None):
+def cli(ctx, days: int = 90, goals: str = None):
     """🔥 BigFoot - Personal Progress Tracker
     
     A lightweight CLI tool that motivates developers to code daily by tracking 
@@ -186,24 +134,19 @@ def cli(ctx, days: int = 90, goals: str = None, view: str = 'auto', periods: int
     
     🚀 FEATURES:
     • 🔥 Dynamic streak tracking with fire animations
-    • 📊 90-day historical charts (daily/weekly/monthly views)
     • 🏆 Achievement system with volume-based rewards
     • 🏆 Hall of Fame with personal records tracking
     • 🎯 Smart goal monitoring with visual progress bars
-    • 📈 GitHub-style activity heatmaps (90+ days)
+    • 📈 Activity heatmaps (30-365+ days)
     • 💬 AI-powered motivational messaging with 177k+ variations
     
     📋 COMMAND EXAMPLES:
     
     \b
-    bigfoot                              # Default dashboard
+    bigfoot                              # Default dashboard (90-day heatmap)
     bigfoot --days 30                    # 30-day heatmap
     bigfoot --days 365                   # Full year view
-    bigfoot --view daily                 # 90-day detailed history
-    bigfoot --view weekly                # 13-week trends
-    bigfoot --view monthly               # 3-month overview
     bigfoot --goals "10,70,300"          # Custom goals
-    bigfoot --periods 60                 # Custom periods
     \b
     
     \b
@@ -227,7 +170,7 @@ def cli(ctx, days: int = 90, goals: str = None, view: str = 'auto', periods: int
     """
     if ctx.invoked_subcommand is None:
         # Show dashboard when no command is provided
-        _run_dashboard(days, goals, view, periods)
+        _run_dashboard(days, goals)
 
 
 
