@@ -52,7 +52,6 @@ def _run_dashboard(days: int = 90, goals: str = None):
         # Get analytics data
         streak_data = analytics.get_streak_data()
         momentum = analytics.calculate_momentum()
-        achievements = analytics.get_achievements()
         goal_progress = analytics.get_goal_progress(daily_goal, weekly_goal, monthly_goal)
         hall_of_fame = analytics.get_hall_of_fame()
         heatmap_data = analytics.generate_heatmap_data(days)  # Use user-specified days for heatmap
@@ -83,29 +82,21 @@ def _run_dashboard(days: int = 90, goals: str = None):
         streak_panel = renderer.render_streak_header(streak_data)
         console.print(streak_panel)
         
-        # 2. Achievements (if any unlocked)
-        unlocked_achievements = [a for a in achievements if a.unlocked_date is not None]
-        in_progress_achievements = [a for a in achievements if a.progress and a.progress > 0]
-        
-        if unlocked_achievements or in_progress_achievements:
-            achievement_panel = renderer.render_achievements(achievements)
-            console.print(achievement_panel)
-        
-        # 3. Hall of Fame (if user has significant history)
+        # 2. Hall of Fame (if user has significant history)
         if total_commits > 10:  # Show Hall of Fame for users with some history
             hall_of_fame_panel = renderer.render_hall_of_fame(hall_of_fame)
             console.print(hall_of_fame_panel)
         
-        # 4. Goals Progress
+        # 3. Goals Progress
         goals_panel = renderer.render_goals_progress(goal_progress)  
         console.print(goals_panel)
         
-        # 5. Activity Heatmap (show heatmap for users with some history)
+        # 4. Activity Heatmap (show heatmap for users with some history)
         if total_commits > 5:  # Show for any user with minimal activity
             heatmap_panel = renderer.render_heatmap(heatmap_data, days=days)  # Use user-specified days
             console.print(heatmap_panel)
         
-        # 6. Motivational Message (always show)
+        # 5. Motivational Message (always show)
         motivational_panel = renderer.render_motivational_message(
             momentum.performance_level, streak_data, momentum
         )
@@ -134,7 +125,6 @@ def cli(ctx, days: int = 90, goals: str = None):
     
     🚀 FEATURES:
     • 🔥 Dynamic streak tracking with fire animations
-    • 🏆 Achievement system with volume-based rewards
     • 🏆 Hall of Fame with personal records tracking
     • 🎯 Smart goal monitoring with visual progress bars
     • 📈 Activity heatmaps (30-365+ days)

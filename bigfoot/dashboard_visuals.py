@@ -7,10 +7,8 @@ from typing import List, Dict, Optional
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
-from rich.text import Text
 from rich.columns import Columns
 from rich.progress import Progress, BarColumn, TextColumn, MofNCompleteColumn
-from rich.align import Align
 from rich import box
 
 from .dashboard import (
@@ -356,7 +354,7 @@ class DashboardRenderer:
         self.chart_renderer = HistoricalChartRenderer()
     
     def render_streak_header(self, streak_data: StreakData) -> Panel:
-        """Render the main streak header with fire animation.
+        """Render the main streak header in compact format.
         
         Args:
             streak_data: Current streak information
@@ -366,50 +364,68 @@ class DashboardRenderer:
         """
         streak = streak_data.current_streak
         
-        # Dynamic title based on streak length
+        # Dynamic title and status based on streak length
         if streak == 0:
-            title = "🌱 START YOUR JOURNEY"
+            title = "🌱 STREAK TRACKING"
             color = "yellow"
+            status_msg = "Start your coding journey today!"
         elif streak < 3:
             title = "🔥 BUILDING MOMENTUM"
             color = "orange3"
+            status_msg = "Keep the fire burning!"
         elif streak < 7:
             title = "⚡ ON FIRE"
             color = "red"
+            status_msg = "You're on a roll!"
         elif streak < 21:
-            title = "🚀 ABSOLUTELY CRUSHING IT"
+            title = "🚀 CRUSHING IT"
             color = "bright_red"
+            status_msg = "Unstoppable performance!"
         else:
             title = "👑 LEGENDARY STATUS"
             color = "gold1"
+            status_msg = "Epic consistency!"
         
-        # Create progress bar for streak
-        if streak_data.next_milestone > 0:
-            bar_width = 50
-            filled = int((streak_data.goal_progress * bar_width))
+        content = []
+        
+        # Streak progress bar - compact format
+        if streak_data.next_milestone > 0 and streak < streak_data.next_milestone:
+            progress = streak_data.goal_progress
+            bar_width = 30
+            filled = int(progress * bar_width)
             empty = bar_width - filled
             
-            progress_bar = "█" * filled + "░" * empty
-            progress_text = f"{streak} / {streak_data.next_milestone} ({streak_data.goal_progress*100:.0f}%)"
+            # Color based on progress
+            if progress >= 0.8:
+                bar_color = "bright_yellow"
+            elif progress >= 0.5:
+                bar_color = "bright_green"
+            else:
+                bar_color = "green"
+            
+            bar = "█" * filled + "░" * empty
+            pct = int(progress * 100)
+            
+            content.append(f"Current Streak: [{bar_color}]{bar}[/{bar_color}] {streak}/{streak_data.next_milestone} days ({pct}%) {status_msg}")
         else:
-            progress_bar = "█" * 50
-            progress_text = f"{streak} DAYS - UNSTOPPABLE!"
+            # Streak reached or exceeded milestone
+            bar = "█" * 30
+            content.append(f"Current Streak: [gold1]{bar}[/gold1] {streak} days - {status_msg}")
         
-        # Build content
-        content = Text()
-        content.append(f"\n{progress_bar}\n", style="bright_red bold")
-        content.append(f"     {streak} DAY STREAK     \n", style="white bold")
-        content.append(f"{progress_text}\n", style="bright_white")
-        
+        # Milestone info
         if streak_data.days_to_milestone > 0:
-            content.append(f"\n🎯 Next Milestone: {streak_data.next_milestone} days ", style="cyan")
-            content.append(f"({streak_data.days_to_milestone} to go!)", style="bright_cyan bold")
-        else:
-            content.append(f"\n🏆 MILESTONE ACHIEVED! ", style="gold1 bold")
-            content.append(f"You're at {streak} days!", style="bright_white")
+            content.append(f"Next Milestone: {streak_data.next_milestone} days ({streak_data.days_to_milestone} days to go)")
+        
+        # Longest streak comparison
+        if streak_data.longest_streak > streak:
+            content.append(f"Personal Best: {streak_data.longest_streak} days (beat it by keeping this up!)")
+        elif streak_data.longest_streak == streak and streak > 0:
+            content.append(f"Personal Best: {streak_data.longest_streak} days 🔥 [bright_red bold]MATCHING YOUR RECORD![/bright_red bold]")
+        elif streak > 0:
+            content.append(f"Personal Best: {streak} days 🏆 [gold1 bold]NEW RECORD![/gold1 bold]")
         
         return Panel(
-            Align.center(content),
+            "\n".join(content),
             title=f"[{color} bold]{title}[/{color} bold]",
             border_style=color,
             padding=(1, 2),
