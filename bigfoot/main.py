@@ -35,18 +35,28 @@ def _run_dashboard(days: int = 210, goals: str = None):
         renderer = DashboardRenderer(console)
         
         # Parse custom goals if provided
-        daily_goal, weekly_goal, monthly_goal = 5, 28, 82  # defaults
+        daily_goal, weekly_goal, monthly_goal = 5, 28, 82  # defaults (moderate)
         if goals:
             try:
-                goal_parts = [int(g.strip()) for g in goals.split(',')]
-                if len(goal_parts) >= 1:
-                    daily_goal = goal_parts[0]
-                if len(goal_parts) >= 2:
-                    weekly_goal = goal_parts[1] 
-                if len(goal_parts) >= 3:
-                    monthly_goal = goal_parts[2]
+                # Check for presets first
+                goals_lower = goals.lower().strip()
+                if goals_lower == 'easy':
+                    daily_goal, weekly_goal, monthly_goal = 5, 20, 60
+                elif goals_lower == 'moderate':
+                    daily_goal, weekly_goal, monthly_goal = 5, 28, 82
+                elif goals_lower == 'challenging':
+                    daily_goal, weekly_goal, monthly_goal = 10, 56, 180
+                else:
+                    # Parse as comma-separated numbers
+                    goal_parts = [int(g.strip()) for g in goals.split(',')]
+                    if len(goal_parts) >= 1:
+                        daily_goal = goal_parts[0]
+                    if len(goal_parts) >= 2:
+                        weekly_goal = goal_parts[1] 
+                    if len(goal_parts) >= 3:
+                        monthly_goal = goal_parts[2]
             except (ValueError, IndexError):
-                show_error_panel("Invalid goals format. Use: daily,weekly,monthly (e.g. '5,35,100')")
+                show_error_panel("Invalid goals format. Use: 'easy'/'moderate'/'challenging' or 'daily,weekly,monthly' (e.g. '5,28,82')")
                 sys.exit(1)
         
         # Get analytics data
@@ -82,13 +92,21 @@ def _run_dashboard(days: int = 210, goals: str = None):
         streak_panel = renderer.render_streak_header(streak_data)
         console.print(streak_panel)
         
-        # 2. Hall of Fame (if user has significant history)
-        if total_commits > 10:  # Show Hall of Fame for users with some history
+        # 2. Hall of Fame (if user has significant history and is making progress toward records)
+        # Only show when within 50% of record to avoid discouragement
+        today_commits = analytics.database.get_total_commits_by_date(date.today().isoformat())
+        show_hall_of_fame = (
+            total_commits > 10 and  # Has some history
+            hall_of_fame.best_single_day_commits.value > 0 and  # Has records
+            (today_commits >= hall_of_fame.best_single_day_commits.value * 0.5 or  # Within 50% of commit record
+             today_commits >= 3)  # Or has made reasonable progress today
+        )
+        if show_hall_of_fame:
             hall_of_fame_panel = renderer.render_hall_of_fame(hall_of_fame)
             console.print(hall_of_fame_panel)
         
         # 3. Goals Progress
-        goals_panel = renderer.render_goals_progress(goal_progress)  
+        goals_panel = renderer.render_goals_progress(goal_progress, today_commits)  
         console.print(goals_panel)
         
         # 4. Activity Heatmap (show heatmap for users with some history)
@@ -115,7 +133,7 @@ def _run_dashboard(days: int = 210, goals: str = None):
 @click.group(invoke_without_command=True)
 @click.version_option(version="0.1.0")
 @click.option('--days', default=210, type=int, help='🗓️  Days to include in activity heatmap (default: 210)')
-@click.option('--goals', help='🎯 Custom goals: "daily,weekly,monthly" format (e.g. "5,28,82" commits)')
+@click.option('--goals', help='🎯 Goals: "easy"/"moderate"/"challenging" or "daily,weekly,monthly" (e.g. "5,28,82")')
 @click.pass_context
 def cli(ctx, days: int = 210, goals: str = None):
     """🔥 BigFoot - Personal Progress Tracker
@@ -136,7 +154,9 @@ def cli(ctx, days: int = 210, goals: str = None):
     bigfoot                              # Default dashboard (210-day heatmap)
     bigfoot --days 30                    # 30-day heatmap
     bigfoot --days 365                   # Full year view
-    bigfoot --goals "10,56,180"          # Custom goals
+    bigfoot --goals easy                 # Easy goals (5,20,60)
+    bigfoot --goals challenging          # Challenging goals (10,56,180)
+    bigfoot --goals "10,56,180"          # Custom numeric goals
     \b
     
     \b

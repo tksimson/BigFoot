@@ -570,18 +570,20 @@ class DashboardRenderer:
             box=box.HEAVY
         )
     
-    def render_goals_progress(self, goals: GoalProgress) -> Panel:
+    def render_goals_progress(self, goals: GoalProgress, today_commits: int = 0) -> Panel:
         """Render goal progress with visual progress bars.
         
         Args:
             goals: Goal progress data
+            today_commits: Today's commit count for smart targets
             
         Returns:
             Rich Panel with goal visualization
         """
+        from datetime import date, timedelta
         content = []
         
-        # Helper function to create progress bar
+        # Helper function to create progress bar (simplified, no status messages)
         def create_progress_bar(current: int, target: int, width: int = 30) -> str:
             if target == 0:
                 return "░" * width + " (No goal set)"
@@ -592,21 +594,17 @@ class DashboardRenderer:
             
             if progress >= 1.0:
                 bar_color = "bright_green"
-                status = "CRUSHED!"
             elif progress >= 0.8:
                 bar_color = "yellow"
-                status = "Almost there!"
             elif progress >= 0.5:
                 bar_color = "blue"
-                status = "Good progress!"
             else:
                 bar_color = "red"
-                status = "Keep going!"
             
             bar = "█" * filled + "░" * empty
             percentage = int(progress * 100)
             
-            return f"[{bar_color}]{bar}[/{bar_color}] {current}/{target} ({percentage}%) {status}"
+            return f"[{bar_color}]{bar}[/{bar_color}] {current}/{target} ({percentage}%)"
         
         content.append("🎯 [bright_cyan bold]CURRENT GOALS[/bright_cyan bold]")
         content.append("")
@@ -614,20 +612,42 @@ class DashboardRenderer:
         content.append(f"Weekly:  {create_progress_bar(goals.weekly_current, goals.weekly_goal)}")
         content.append(f"Monthly: {create_progress_bar(goals.monthly_current, goals.monthly_goal)}")
         
-        # Show which goals are exceeded
+        # Weekly pace indicator
+        if goals.weekly_current > 0:
+            # Calculate days elapsed in current week (assuming week starts Monday)
+            today = date.today()
+            days_elapsed = today.weekday() + 1  # Monday=1, Sunday=7
+            weekly_pace = goals.weekly_current / days_elapsed if days_elapsed > 0 else 0
+            projected_weekly = weekly_pace * 7
+            
+            pace_color = "bright_green" if projected_weekly >= goals.weekly_goal else "yellow"
+            content.append("")
+            content.append(f"📊 Weekly pace: [{pace_color}]{weekly_pace:.1f}[/{pace_color}] commits/day (tracking toward {projected_weekly:.0f})")
+        
+        # Smart daily target calculator
+        today = date.today()
+        days_left_in_week = 7 - (today.weekday() + 1)  # Days remaining in week
+        days_left_in_month = (date(today.year, today.month + 1 if today.month < 12 else today.year + 1, 1 if today.month < 12 else today.year + 1) - timedelta(days=1)).day - today.day
+        
+        if days_left_in_week > 0:
+            commits_needed_weekly = max(0, goals.weekly_goal - goals.weekly_current)
+            daily_target_weekly = commits_needed_weekly / days_left_in_week if days_left_in_week > 0 else 0
+            
+            if commits_needed_weekly > 0:
+                content.append(f"🎯 Today's target to hit weekly goal: [bright_yellow]{daily_target_weekly:.1f}[/bright_yellow] commits")
+        
+        # Show which goals are exceeded (more compact)
         exceeded = []
         if goals.daily_current > goals.daily_goal:
-            exceeded.append(f"Daily goal exceeded by {goals.daily_current - goals.daily_goal}!")
+            exceeded.append(f"Daily +{goals.daily_current - goals.daily_goal}")
         if goals.weekly_current > goals.weekly_goal:
-            exceeded.append(f"Weekly goal exceeded by {goals.weekly_current - goals.weekly_goal}!")
+            exceeded.append(f"Weekly +{goals.weekly_current - goals.weekly_goal}")
         if goals.monthly_current > goals.monthly_goal:
-            exceeded.append(f"Monthly goal exceeded by {goals.monthly_current - goals.monthly_goal}!")
+            exceeded.append(f"Monthly +{goals.monthly_current - goals.monthly_goal}")
         
         if exceeded:
             content.append("")
-            content.append("🚀 [bright_green bold]GOAL CRUSHER ALERT![/bright_green bold]")
-            for exceed in exceeded:
-                content.append(f"  • {exceed}")
+            content.append(f"🚀 [bright_green bold]Exceeded:[/bright_green bold] {', '.join(exceeded)}")
         
         return Panel(
             "\n".join(content),
