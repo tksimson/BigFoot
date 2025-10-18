@@ -24,7 +24,7 @@ from .utils import (
 )
 
 
-def _run_dashboard(days: int = 90, goals: str = None):
+def _run_dashboard(days: int = 210, goals: str = None):
     """Execute the dashboard functionality with provided options."""
     console = get_console()
     
@@ -35,7 +35,7 @@ def _run_dashboard(days: int = 90, goals: str = None):
         renderer = DashboardRenderer(console)
         
         # Parse custom goals if provided
-        daily_goal, weekly_goal, monthly_goal = 5, 35, 100  # defaults
+        daily_goal, weekly_goal, monthly_goal = 5, 28, 82  # defaults
         if goals:
             try:
                 goal_parts = [int(g.strip()) for g in goals.split(',')]
@@ -114,14 +114,14 @@ def _run_dashboard(days: int = 90, goals: str = None):
 
 @click.group(invoke_without_command=True)
 @click.version_option(version="0.1.0")
-@click.option('--days', default=90, type=int, help='🗓️  Days to include in activity heatmap (default: 90)')
-@click.option('--goals', help='🎯 Custom goals: "daily,weekly,monthly" format (e.g. "5,35,100" commits)')
+@click.option('--days', default=210, type=int, help='🗓️  Days to include in activity heatmap (default: 210)')
+@click.option('--goals', help='🎯 Custom goals: "daily,weekly,monthly" format (e.g. "5,28,82" commits)')
 @click.pass_context
-def cli(ctx, days: int = 90, goals: str = None):
+def cli(ctx, days: int = 210, goals: str = None):
     """🔥 BigFoot - Personal Progress Tracker
     
     A lightweight CLI tool that motivates developers to code daily by tracking 
-    local git activity and providing revolutionary 90-day historical insights.
+    local git activity and providing revolutionary 210-day historical insights.
     
     🚀 FEATURES:
     • 🔥 Dynamic streak tracking with fire animations
@@ -133,10 +133,10 @@ def cli(ctx, days: int = 90, goals: str = None):
     📋 COMMAND EXAMPLES:
     
     \b
-    bigfoot                              # Default dashboard (90-day heatmap)
+    bigfoot                              # Default dashboard (210-day heatmap)
     bigfoot --days 30                    # 30-day heatmap
     bigfoot --days 365                   # Full year view
-    bigfoot --goals "10,70,300"          # Custom goals
+    bigfoot --goals "10,56,180"          # Custom goals
     \b
     
     \b

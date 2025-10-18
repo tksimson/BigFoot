@@ -41,68 +41,68 @@ class MotivationalEngine:
         # Message templates for each performance level
         self.templates = {
             PerformanceLevel.LEGENDARY: [
-                "🏆 {streak} days {strong}! You're operating on a different level now.",
-                "👑 That {commits} commits this week? Pure {legendary} performance.",
+                "🏆 {streak} days {strong}! You're operating at an exceptional level.",
+                "👑 {commits} commits this week shows serious dedication.",
                 
-                "🔥 {streak}-day {streak} with {commits} commits? You're in beast mode!",
-                "⚡ This consistency is what separates legends from everyone else.",
+                "🔥 {streak}-day streak with {commits} commits? You're on fire!",
+                "⚡ This consistency is what separates the committed from the casual.",
                 
-                "💎 {commits} commits this week - that's {legendary} territory!",
-                "🚀 Your {power} is undeniable. {keep} this momentum {going}!",
+                "💎 {commits} commits this week - you're in rare territory.",
+                "🚀 Your {power} is undeniable. {keep} this {going}!",
                 
-                "🌟 {streak} days straight? You've transcended normal coding habits.",
-                "🎯 Challenge: Can you maintain this {legendary} status? I know you can!",
+                "🌟 {streak} days straight? You've built something remarkable.",
+                "🎯 Can you maintain this status? Based on your track record, absolutely.",
                 
-                "👹 {commits} commits with {consistency} active days? Monster performance!",
-                "⭐ You're not just coding - you're {building} mastery daily."
+                "👹 {commits} commits with {consistency} active days? Outstanding work!",
+                "⭐ You're not just coding - you're mastering the craft daily."
             ],
             PerformanceLevel.CRUSHING: [
-                "🔥 {streak} days and {commits} commits? You're absolutely {crushing} it!",
-                "💪 That {change}% growth shows your momentum is {strong}.",
+                "🔥 {streak} days and {commits} commits? You're {crushing} it!",
+                "💪 {change}% growth shows your momentum is {strong}.",
                 
                 "⚡ {consistency} active days this week - your rhythm is {amazing}!",
-                "🎯 {milestone_days} days to your {next} milestone. You've got this!",
+                "🎯 {milestone_days} days to your next milestone. You've got this!",
                 
-                "🚀 {commits} commits shows real commitment. {keep} that fire burning!",
-                "📈 Your {progress} is accelerating. Can you feel that {power}?",
+                "🚀 {commits} commits shows real commitment. Keep pushing!",
+                "📈 Your {progress} is accelerating. The momentum is real.",
                 
                 "💎 This {streak}-day run proves you show up when it counts.",
-                "🌟 {consistency}/7 days active? That's champion-level consistency!",
+                "🌟 {consistency}/7 days active? That's elite-level consistency!",
                 
                 "🔥 Week-over-week growth: {change}%! Your momentum is {building}.",
-                "⚡ You're {building} something {strong}. {next} level incoming!"
+                "⚡ You're {building} something {strong}. Next level incoming!"
             ],
             PerformanceLevel.BUILDING: [
                 "⚡ {consistency} active days this week - you're finding your rhythm!",
-                "🎯 {milestone_days} days to {milestone} milestone. {progress} is happening!",
+                "🎯 {milestone_days} days to the {milestone} milestone. {progress} is real!",
                 
-                "🌱 Your {streak}-day {streak} shows real potential. {keep} {building}!",
+                "🌱 Your {streak}-day streak shows real potential. {keep} {building}!",
                 "💪 Every commit proves you're someone who follows through.",
                 
-                "📊 {commits} commits this week? Solid {progress} happening here.",
-                "🔥 You're {building} the habit of showing up daily. That's {power}!",
+                "📊 {commits} commits this week? Solid {progress} happening.",
+                "🔥 You're {building} the habit of showing up daily. That's everything.",
                 
                 "⚡ {consistency}/7 active days - momentum is clearly {building}!",
-                "🚀 This is where champions separate from average. Which are you?",
+                "🚀 This is where you separate yourself from the crowd.",
                 
                 "💎 Your consistency this week is {amazing}. {keep} it {going}!",
                 "🎯 {milestone_days} more days to level up. You're almost there!"
             ],
             PerformanceLevel.STARTING: [
-                "🌟 Every {legendary} coder started exactly where you are now.",
-                "🚀 You've taken the first step - that puts you ahead of most!",
+                "🌟 Every great coder started exactly where you are now.",
+                "🚀 You've taken the first step - that's what matters most.",
                 
                 "💎 Small wins lead to big victories. Just focus on today.",
-                "⚡ The journey of a thousand commits begins with one. You're {building}!",
+                "⚡ The journey of a thousand commits begins with one.",
                 
-                "🔥 Tracking your {progress} shows you're serious about growth.",
-                "🎯 Champions aren't born - they're forged one commit at a time.",
+                "🔥 Tracking your {progress} shows you're serious about this.",
+                "🎯 Mastery isn't built in a day - it's forged one commit at a time.",
                 
                 "🌱 Your coding journey starts now. Every expert was once a beginner.",
-                "💪 Just {keep} showing up. Consistency beats perfection every time.",
+                "💪 Just {keep} showing up. Consistency beats perfection.",
                 
-                "⭐ You're {building} something {amazing}. One day at a time wins.",
-                "🚀 Today's commit is tomorrow's momentum. Start your {streak}!"
+                "⭐ You're {building} something {amazing}. One day at a time.",
+                "🚀 Today's commit is tomorrow's momentum. Let's build that streak!"
             ]
         }
     
@@ -364,27 +364,22 @@ class DashboardRenderer:
         """
         streak = streak_data.current_streak
         
-        # Dynamic title and status based on streak length
+        # Dynamic title based on streak length
         if streak == 0:
             title = "🌱 STREAK TRACKING"
             color = "yellow"
-            status_msg = "Start your coding journey today!"
         elif streak < 3:
             title = "🔥 BUILDING MOMENTUM"
             color = "orange3"
-            status_msg = "Keep the fire burning!"
         elif streak < 7:
             title = "⚡ ON FIRE"
             color = "red"
-            status_msg = "You're on a roll!"
         elif streak < 21:
             title = "🚀 CRUSHING IT"
             color = "bright_red"
-            status_msg = "Unstoppable performance!"
         else:
             title = "👑 LEGENDARY STATUS"
             color = "gold1"
-            status_msg = "Epic consistency!"
         
         content = []
         
@@ -406,19 +401,15 @@ class DashboardRenderer:
             bar = "█" * filled + "░" * empty
             pct = int(progress * 100)
             
-            content.append(f"Current Streak: [{bar_color}]{bar}[/{bar_color}] {streak}/{streak_data.next_milestone} days ({pct}%) {status_msg}")
+            content.append(f"Current Streak: [{bar_color}]{bar}[/{bar_color}] {streak}/{streak_data.next_milestone} days ({pct}%)")
         else:
             # Streak reached or exceeded milestone
             bar = "█" * 30
-            content.append(f"Current Streak: [gold1]{bar}[/gold1] {streak} days - {status_msg}")
-        
-        # Milestone info
-        if streak_data.days_to_milestone > 0:
-            content.append(f"Next Milestone: {streak_data.next_milestone} days ({streak_data.days_to_milestone} days to go)")
+            content.append(f"Current Streak: [gold1]{bar}[/gold1] {streak} days")
         
         # Longest streak comparison
         if streak_data.longest_streak > streak:
-            content.append(f"Personal Best: {streak_data.longest_streak} days (beat it by keeping this up!)")
+            content.append(f"Personal Best: {streak_data.longest_streak} days")
         elif streak_data.longest_streak == streak and streak > 0:
             content.append(f"Personal Best: {streak_data.longest_streak} days 🔥 [bright_red bold]MATCHING YOUR RECORD![/bright_red bold]")
         elif streak > 0:

@@ -466,8 +466,8 @@ class DashboardAnalytics:
             record_chase_progress=record_chase_progress
         )
     
-    def get_goal_progress(self, daily_goal: int = 5, weekly_goal: int = 35, 
-                         monthly_goal: int = 100, target_date: str = None) -> GoalProgress:
+    def get_goal_progress(self, daily_goal: int = 5, weekly_goal: int = 28, 
+                         monthly_goal: int = 82, target_date: str = None) -> GoalProgress:
         """Get progress towards daily, weekly, and monthly goals.
         
         Args:
