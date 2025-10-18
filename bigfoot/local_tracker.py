@@ -229,17 +229,26 @@ class LocalGitTracker:
             }
         
         print(f"📁 Found {len(repos)} git repositories")
-        
+
         all_commits = []
         repo_stats = []
         all_user_emails = set()
-        
+        processed_repos = set()  # Track processed repository paths to avoid duplicates
+        unique_repos_processed = 0
+
         for repo_path in repos:
+            # Skip if we've already processed this repository
+            if repo_path in processed_repos:
+                continue
+
+            processed_repos.add(repo_path)
+            unique_repos_processed += 1
+
             try:
                 # Get user emails for this repo
                 user_emails = self.get_git_user_emails(repo_path)
                 all_user_emails.update(user_emails)
-                
+
                 # Get commits for the date
                 commits = self.get_commits_for_date(repo_path, target_date, user_emails)
                 
@@ -308,7 +317,8 @@ class LocalGitTracker:
             'total_commits': len(all_commits),
             'repositories': deduplicated_repo_stats,
             'user_emails': all_user_emails,
-            'commits': all_commits
+            'commits': all_commits,
+            'unique_repos_processed': unique_repos_processed
         }
     
     def backfill_history(self, days: int, search_paths: List[str] = None, 

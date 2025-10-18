@@ -334,7 +334,8 @@ def track(date: str = None, search_paths: str = None):
             console.print()
         
         # Motivational message
-        console.print(f"💬 Great job! You made {commits} commits today across {len(results.get('repositories', []))} repositories!")
+        repos_with_commits = len(results.get('repositories', []))
+        console.print(f"💬 Great job! You made {commits} commits today across {repos_with_commits} repositories!")
         
     except Exception as e:
         show_error_panel(f"Local tracking failed: {e}")
