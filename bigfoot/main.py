@@ -89,12 +89,12 @@ def _run_dashboard(days: int = 210, goals: str = None):
         console.print()
         
         # 1. Streak Header (always visible)
-        streak_panel = renderer.render_streak_header(streak_data)
+        today_commits = analytics.database.get_total_commits_by_date(date.today().isoformat())
+        streak_panel = renderer.render_streak_header(streak_data, today_commits)
         console.print(streak_panel)
         
         # 2. Hall of Fame (if user has significant history and is making progress toward records)
         # Only show when within 50% of record to avoid discouragement
-        today_commits = analytics.database.get_total_commits_by_date(date.today().isoformat())
         show_hall_of_fame = (
             total_commits > 10 and  # Has some history
             hall_of_fame.best_single_day_commits.value > 0 and  # Has records

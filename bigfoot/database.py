@@ -200,14 +200,24 @@ class Database:
     def calculate_streak(self, target_date: str = None) -> int:
         """Calculate current daily coding streak.
         
+        Streak logic:
+        - If checking for today and today has no commits yet, don't count it as broken
+        - Streak only breaks if a PAST day (not today) is missing
+        - This prevents demotivating "broken streak" messages early in the day
+        
         Args:
             target_date: Date to calculate streak from (defaults to today)
             
         Returns:
             Current streak length in days
         """
+        from datetime import datetime, timedelta
+        
         if target_date is None:
             target_date = date.today().isoformat()
+        
+        today_str = date.today().isoformat()
+        is_checking_today = (target_date == today_str)
         
         with sqlite3.connect(self.db_path) as conn:
             # Get all dates with commits, ordered by date descending
@@ -227,11 +237,17 @@ class Database:
             streak = 0
             current_date = target_date
             
+            # Special handling: If checking today and today has no commits yet,
+            # start checking from yesterday to avoid falsely breaking the streak
+            if is_checking_today and today_str not in commit_dates:
+                current_dt = datetime.strptime(current_date, '%Y-%m-%d')
+                current_dt -= timedelta(days=1)
+                current_date = current_dt.strftime('%Y-%m-%d')
+            
             for commit_date in commit_dates:
                 if commit_date == current_date:
                     streak += 1
                     # Move to previous day
-                    from datetime import datetime, timedelta
                     current_dt = datetime.strptime(current_date, '%Y-%m-%d')
                     current_dt -= timedelta(days=1)
                     current_date = current_dt.strftime('%Y-%m-%d')

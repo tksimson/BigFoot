@@ -353,11 +353,12 @@ class DashboardRenderer:
         self.motivational_engine = MotivationalEngine()
         self.chart_renderer = HistoricalChartRenderer()
     
-    def render_streak_header(self, streak_data: StreakData) -> Panel:
+    def render_streak_header(self, streak_data: StreakData, today_commits: int = 0) -> Panel:
         """Render the main streak header in compact format.
         
         Args:
             streak_data: Current streak information
+            today_commits: Number of commits today (for streak status)
             
         Returns:
             Rich Panel with streak visualization
@@ -406,6 +407,10 @@ class DashboardRenderer:
             # Streak reached or exceeded milestone
             bar = "█" * 30
             content.append(f"Current Streak: [gold1]{bar}[/gold1] {streak} days")
+        
+        # Show encouraging message if streak is active but no commits today yet
+        if streak > 0 and today_commits == 0:
+            content.append(f"⏰ [yellow]Streak still alive! Commit before midnight to keep your {streak}-day streak.[/yellow]")
         
         # Longest streak comparison
         if streak_data.longest_streak > streak:
@@ -668,17 +673,19 @@ class DashboardRenderer:
             Rich Panel with activity heatmap visualization
         """
         def get_heat_style(commits: int) -> tuple[str, str]:
-            """Get color and character based on commit count - GitHub style."""
+            """Get color and character based on commit count - green to yellow gradient."""
             if commits == 0:
                 return "■", "dim white"  # Empty/no activity
             elif commits <= 2:
-                return "■", "green"      # Light activity
-            elif commits <= 5:
-                return "■", "bright_green"  # Medium activity
-            elif commits <= 8:
-                return "■", "bright_yellow"  # High activity
+                return "■", "green"      # Light green - starting
+            elif commits <= 4:
+                return "■", "bright_green"  # Medium green - building
+            elif commits <= 7:
+                return "■", "green_yellow"  # Green-yellow - strong
+            elif commits <= 10:
+                return "■", "yellow3"  # Yellow - very strong
             else:
-                return "■", "bright_red"     # Intense activity
+                return "■", "bright_yellow"     # Bright yellow - intense
         
         if not heatmap_data:
             return Panel(
@@ -764,8 +771,8 @@ class DashboardRenderer:
         
         content.append("")
         
-        # Legend with GitHub-style indicators
-        legend_line = "Less [dim white]■[/dim white] [green]■[/green] [bright_green]■[/bright_green] [bright_yellow]■[/bright_yellow] [bright_red]■[/bright_red] More"
+        # Legend with green-to-yellow gradient
+        legend_line = "Less [dim white]■[/dim white] [green]■[/green] [bright_green]■[/bright_green] [green_yellow]■[/green_yellow] [yellow3]■[/yellow3] [bright_yellow]■[/bright_yellow] More"
         content.append(legend_line)
         
         # Summary stats
