@@ -53,6 +53,7 @@ class Snapshot:
     week: DayStat
     month: DayStat
     year: DayStat
+    window: DayStat  # the span the activity calendar covers
     streak: Streak
     grid: Grid
     active_this_week: int
@@ -195,6 +196,9 @@ def snapshot(store: Store, weeks: int = 26, today: date | None = None) -> Snapsh
         week=store.range_total(week_start.isoformat(), iso),
         month=store.range_total(month_start.isoformat(), iso),
         year=store.range_total(year_start.isoformat(), iso),
+        # Totals for exactly the span the calendar draws, so the legend cannot
+        # quote an all-time repository count beside a windowed commit count.
+        window=store.range_total(grid_start.isoformat(), grid_end.isoformat()),
         streak=streak(store.active_days(), now),
         grid=grid(counts, weeks, now, first_tracked),
         active_this_week=active_this_week,

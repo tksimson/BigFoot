@@ -338,12 +338,18 @@ def _totals(
     term: Terminal,
     full: bool = True,
 ) -> str:
-    """Totals for exactly the window drawn, so the figures match the picture."""
+    """Totals for exactly the window drawn, so the figures match the picture.
+
+    The repository count comes from the snapshot's window rather than from the
+    cells, which carry commits only. All-time would be wrong here: quoting "38
+    repos" beside thirteen weeks of commits invites the reader to divide one by
+    the other and get a number that means nothing.
+    """
     commits = sum(cell.commits for week in columns for cell in week if cell.in_range)
     window = _count(term, len(columns), "week")
     parts = [
         _count(term, commits, "commit"),
-        _count(term, snapshot.tracked_repos, "repo"),
+        _count(term, snapshot.window.repos, "repo"),
         (term.style("last ", dim=True) + window) if full else window,
     ]
     return _join(parts, term)

@@ -37,6 +37,12 @@ CANDIDATE_ROOTS = (
 # rebases and clock skew; duplicate SHAs are ignored by the store anyway.
 SYNC_OVERLAP_DAYS = 7
 
+# How far back a sync reaches. Sentinels rather than dates, because "everything"
+# has to become *no* --since argument: there is no date old enough to mean it
+# safely (see resolve_since).
+INCREMENTAL = object()
+FULL = object()
+
 
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
@@ -123,8 +129,10 @@ def cmd_sync(args: argparse.Namespace, out: term.Terminal) -> int:
         ids = {f.key: store.upsert_repo(f.key, f.name, str(f.path)) for f in found}
 
         def since_for(repo: gitscan.Found) -> str | None:
-            if since_override is not None:
-                return since_override
+            if since_override is FULL:
+                return None
+            if since_override is not INCREMENTAL:
+                return since_override  # an explicit date
             last = store.latest_day(ids[repo.key])
             if not last:
                 return None
@@ -412,15 +420,24 @@ def db_location(args: argparse.Namespace) -> Path:
 def resolve_since(args: argparse.Namespace) -> str | None:
     """Translate the sync range flags into a ``--since`` value.
 
-    ``None`` means "incremental": each repo picks up where it left off.
+    Three outcomes, and they are genuinely distinct:
+
+    * ``INCREMENTAL`` -- each repository picks up where it left off.
+    * ``FULL`` -- no ``--since`` argument at all.
+    * a date string -- passed through to git.
+
+    ``--all`` must not be expressed as an early date. ``--since=1970-01-01``
+    converts to a negative timestamp in any timezone ahead of UTC, git rejects
+    it, and the command reports success having read nothing. It works in London
+    and returns zero commits in Warsaw, which is the worst kind of bug to ship.
     """
     if getattr(args, "all", False):
-        return "1970-01-01"
+        return FULL
     if getattr(args, "since", None):
         return args.since
     if getattr(args, "days", None):
         return (date.today() - timedelta(days=args.days)).isoformat()
-    return None
+    return INCREMENTAL
 
 
 class Progress:

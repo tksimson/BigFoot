@@ -97,6 +97,12 @@ people. Found in review, fixed before release:
 - **A control character in a harvested email destroyed the config.** It was
   written unescaped, TOML then rejected the file, and the fallback to defaults
   made BigFoot look unconfigured until the next save overwrote the settings.
+- **`sync --all` read nothing east of UTC.** Full history was expressed as
+  `--since=1970-01-01`, which becomes a negative timestamp in any timezone
+  ahead of UTC. git rejects it and returns no commits, so the command reported
+  success having recorded nothing, and `bigfoot init` inherited the same
+  failure on its first sync. It worked in London and failed in Warsaw. Full
+  history now passes no `--since` argument at all.
 - **A future-dated commit propped up a dead streak.** The current run was
   counted back from the newest date in the database rather than from today, so
   a commit dated ahead (a colleague thirteen timezones east, a fast clock) kept
