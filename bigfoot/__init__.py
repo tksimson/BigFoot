@@ -1,4 +1,4 @@
-"""BigFoot - Personal Progress Tracker"""
+"""BigFoot -- your local git activity, at a glance."""
 
-__version__ = "0.1.0"
-__author__ = "BigFoot Team"
+__version__ = "1.0.0"
+__all__ = ["__version__"]
