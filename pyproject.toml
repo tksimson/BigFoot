@@ -1,0 +1,70 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "bigfoot"
+dynamic = ["version"]
+description = "Your local git activity, at a glance. Nothing leaves your machine."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { file = "LICENSE" }
+authors = [{ name = "tksimson" }]
+keywords = ["git", "cli", "statistics", "productivity", "terminal", "streak", "local"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Version Control :: Git",
+    "Topic :: Utilities",
+]
+
+# Zero runtime dependencies, on purpose. Everything BigFoot needs is in the
+# standard library, so it installs instantly and cannot break on a resolver.
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest"]
+
+[project.scripts]
+bigfoot = "bigfoot.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/tksimson/BigFoot"
+Source = "https://github.com/tksimson/BigFoot"
+Issues = "https://github.com/tksimson/BigFoot/issues"
+Changelog = "https://github.com/tksimson/BigFoot/blob/main/CHANGELOG.md"
+
+[tool.hatch.version]
+path = "bigfoot/__init__.py"
+
+[tool.hatch.build]
+# Nothing dirty ships today because .gitignore already covers it, but a
+# published artifact should not depend on that holding.
+exclude = ["**/*.db", "**/*.db-wal", "**/*.db-shm", "**/*.sqlite", "**/__pycache__"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["bigfoot"]
+
+[tool.hatch.build.targets.sdist]
+include = ["bigfoot", "tests", "docs", "README.md", "CHANGELOG.md", "LICENSE"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM", "C4", "RUF"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["E501"]

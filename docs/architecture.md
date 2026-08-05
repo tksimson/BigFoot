@@ -1,236 +1,159 @@
-# BigFoot - Technical Architecture
+# Architecture
 
-## System Overview
+Written for someone about to open a PR. Four decisions carry most of the
+design; the rest is small functions.
 
-BigFoot is a Python CLI application that tracks GitHub activity and provides motivational feedback through a terminal interface.
-
-## Architecture
-
-```
-bigfoot/
-├── main.py              # CLI entry point & command routing
-├── config.yaml          # GitHub repos + settings
-├── tracker.py           # Core tracking logic & GitHub API
-├── database.py          # SQLite operations & schema management
-├── rewards.py           # Motivation engine & achievements
-├── utils.py             # Common utilities & helpers
-├── data/
-│   └── bigfoot.db       # SQLite database
-└── tests/
-    ├── test_tracker.py
-    ├── test_database.py
-    └── test_rewards.py
-```
-
-## Tech Stack
-
-- **Language**: Python 3.8+
-- **CLI Framework**: Click
-- **Terminal UI**: Rich
-- **Database**: SQLite3
-- **HTTP Client**: Requests
-- **Config**: PyYAML
-- **Date Handling**: python-dateutil
-
-## Database Schema
+## The data model: one row per commit
 
 ```sql
--- Core tables with proper constraints and indexing
 CREATE TABLE commits (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    repo TEXT NOT NULL,
-    date DATE NOT NULL,
-    count INTEGER DEFAULT 0,
-    lines_added INTEGER DEFAULT 0,
-    lines_deleted INTEGER DEFAULT 0,
-    collected_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(repo, date)
+    sha        TEXT NOT NULL,
+    repo_id    INTEGER NOT NULL REFERENCES repos(id) ON DELETE CASCADE,
+    day        TEXT NOT NULL,
+    email      TEXT NOT NULL,
+    insertions INTEGER NOT NULL DEFAULT 0,
+    deletions  INTEGER NOT NULL DEFAULT 0,
+    files      INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (sha, repo_id)
 );
-
-CREATE TABLE streaks (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    start_date DATE NOT NULL,
-    end_date DATE,
-    length INTEGER NOT NULL,
-    type TEXT NOT NULL CHECK (type IN ('daily', 'weekly')),
-    is_active BOOLEAN DEFAULT 1,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE rewards (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    type TEXT NOT NULL,
-    message TEXT NOT NULL,
-    date DATE NOT NULL,
-    triggered_by TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
--- Indexes for performance
-CREATE INDEX idx_commits_date ON commits(date);
-CREATE INDEX idx_commits_repo_date ON commits(repo, date);
-CREATE INDEX idx_streaks_active ON streaks(is_active);
 ```
 
-## Configuration Schema
+0.x stored daily aggregates: one row per (repo, date) holding a count. That
+shape has no way to tell whether a commit has been seen before, so every sync
+either added work twice or needed a hand-written guard against doing so. Double
+counting was not a bug that kept coming back; it was the schema working as
+designed.
 
-```yaml
-# config.yaml - Minimal, sensible defaults
-github:
-  token: "ghp_xxx"  # Personal access token
-  repos:
-    - "username/repo1"
-    - "username/repo2"
-  rate_limit: 5000   # API calls per hour
-settings:
-  timezone: "UTC"
-  daily_goal: 10     # Commits per day (customizable)
-  show_progress: true
-  color_output: true  # Terminal color support
-  compact_mode: false # Detailed vs summary view
+With the SHA as the key, `INSERT OR IGNORE` makes sync idempotent by
+construction. Run it a hundred times and the numbers do not move. Overlapping
+date ranges become free, which is why `sync` re-reads a week of history it
+already has: cheap insurance against rebases and clock skew, with no
+correctness cost.
+
+The price is rows. Ten years of heavy work is a few hundred thousand rows and a
+database in the tens of megabytes, and every dashboard query is a `GROUP BY` on
+an indexed `day` column. Aggregation is a query concern, not a storage concern.
+Counts use `COUNT(DISTINCT sha)` so one commit reachable from two clones is
+counted once.
+
+## Repo identity: normalised remote URL
+
+`_identify()` in `gitscan.py` keys a repository by its remote, reduced to
+`host/owner/repo`:
+
+```
+git@github.com:tksimson/BigFoot.git
+https://github.com/tksimson/BigFoot
+ssh://git@github.com/tksimson/BigFoot.git
+        > github.com/tksimson/BigFoot
 ```
 
-## Environment Variables
+The host is lowercased; the path is not, because on some hosts it is
+case-significant.
 
-```bash
-BIGFOOT_CONFIG_PATH=/path/to/config.yaml
-BIGFOOT_DATA_PATH=/path/to/data/
-BIGFOOT_LOG_LEVEL=INFO
+Repos with no remote fall back to `path:<resolved path>`.
+
+0.x keyed on directory basename under a `UNIQUE(repo, date)` constraint, so
+`~/work/api` and `~/oss/api` were the same repository and silently overwrote
+each other's history. Basename is not an identity; it is a display name, and it
+is still used as one in the `name` column.
+
+The upside of remote-keying is that clones collapse. `~/dev/bigfoot` and
+`/tmp/bigfoot-review` are one entry with one set of commits, not a doubled
+streak. The downside is that a fork and its upstream share a key when the fork
+has no distinct remote configured, which is the right call far more often than
+not.
+
+## Discovery: one pruned walk
+
+`discover()` is a plain `os.walk` per configured root, with three prunes:
+
+1. A directory containing `.git` is a repository. Record it and set
+   `dirnames[:] = []` so descent stops at the boundary. Submodules and vendored
+   checkouts inside a project are not separate entries.
+2. Depth past `max_depth` (default 6) below the root prunes.
+3. Names in `ignore_dirs` prune: `node_modules`, `.venv`, `target`, `dist`,
+   caches, and so on.
+
+There is deliberately no fourth rule pruning dot-directories. An earlier draft
+had one, and it was fast and wrong: it silently lost dotfiles repos and things
+like `~/.config/nvim`, because the walk never descended far enough to see their
+`.git`. A list you can read and edit beats a rule you have to reverse-engineer
+from surprising results.
+
+Roots that sit inside another root are dropped before walking (`_outermost`),
+and results land in a dict keyed by repo key, so overlapping roots deduplicate.
+Identifying each candidate costs a `git config` call, so those run in a thread
+pool.
+0.x shelled out to `find` once per root with default roots that overlapped
+(`~/dev` and `~`), so most repositories were discovered two or three times and
+every one of them cost a subprocess.
+
+## Reading: one `git log` per repository
+
+```
+git log --all --no-merges --numstat --date=short \
+        --pretty=format:<RS>%H<US>%ad<US>%ae [--since=DATE]
 ```
 
-## Dependencies
+One call per repository, parsed in `parse_log()`, bucketed by date in Python.
+0.x ran `git log` for every (day, repo) pair and then `git show` per commit:
+90 days across 40 repos was over 3,600 subprocess spawns before a single line
+was counted. Process spawn dominated the runtime, and it scaled with the range
+requested rather than with the amount of work that existed.
 
-```python
-# requirements.txt
-click>=8.0.0          # CLI framework
-requests>=2.25.0      # HTTP client
-pyyaml>=6.0           # Configuration parsing
-rich>=13.0.0          # Terminal formatting & colors
-python-dateutil>=2.8.0 # Date handling
-sqlite3               # Built-in database
-```
+Details that matter if you touch this:
 
-## Design Principles
+- `\x1e` and `\x1f` separate records and fields, because commit metadata can
+  contain anything a newline-based format would be confused by.
+- `--all` scans every ref, so work on unmerged feature branches counts. The SHA
+  primary key absorbs the duplicates that follow from a commit being reachable
+  from several refs.
+- `--no-merges` because a merge records an integration, not a day's work, and
+  `--numstat` reports nothing for it anyway.
+- Binary files report `-` for both counts. `isdigit()` guards the parse.
+- Repositories are read in a `ThreadPoolExecutor` (8 workers). The work is
+  subprocess I/O, so the GIL is not in the way.
+- Failures are per repository: a timeout or a corrupt repo returns a
+  `SyncResult` with an error string and the rest of the sync continues.
 
-- **Single Responsibility**: Each module has one clear purpose
-- **Fail Fast**: Validate inputs early, clear error messages
-- **Graceful Degradation**: Works offline, handles API failures
-- **Testable**: Pure functions where possible, dependency injection
+## Author identity
 
-## Error Handling Strategy
+`config.git_emails()` reads `git config --global/--system user.email` and
+nothing else. 0.x harvested every author from the last 100 commits of each
+repository, which meant that in any shared repo your colleagues' work was
+recorded as yours. Additional addresses are added explicitly with
+`bigfoot config --add-email`.
 
-- **API Failures**: Graceful degradation, retry with backoff
-- **Network Issues**: Offline mode, queue for later sync
-- **Configuration Errors**: Clear messages with fix suggestions
-- **Database Issues**: Automatic recovery, backup creation
+`parse_log()` treats an empty email set as matching nothing, deliberately. The
+failure mode of a wrong default here is silently inflating someone's numbers,
+so the default is to count zero and say so.
 
-## Performance Requirements
+## Module map
 
-- **Fast startup**: Commands complete in <2 seconds
-- **Low memory**: <50MB RAM usage
-- **Minimal disk**: <10MB installation size
-- **Offline capable**: Works without internet (cached data)
+| Module | Responsibility | Depends on |
+| --- | --- | --- |
+| `cli.py` | argparse surface, command handlers, JSON output | everything |
+| `config.py` | XDG paths, TOML read/write, git identity | stdlib |
+| `gitscan.py` | repo discovery, `git log` parsing | `store` (for `Commit`) |
+| `store.py` | SQLite schema and queries | stdlib |
+| `stats.py` | streaks, activity grid, snapshot | `store` |
+| `render.py` | dashboard layout, strings | `stats`, `term` |
+| `term.py` | colour, width, capability detection | stdlib |
 
-## Private Repository Support (Phase 2)
+The dependency direction is one way: `stats` never touches git, `gitscan` never
+touches the terminal, `store` never formats anything. That is what makes the
+streak rules testable without a database full of fixtures and a TTY.
 
-### Token Permissions Required
-```yaml
-# Required GitHub token scopes
-github:
-  token_scopes:
-    - "repo"           # Full access to private repositories
-    - "public_repo"    # Access to public repositories
-    - "read:user"      # Read user profile information
-```
+## If you are adding something
 
-### Repository Validation Flow
-1. **Token Validation**: Check token permissions and validity
-2. **Repository Access Check**: Verify user can access each repo
-3. **Permission Categorization**: Classify repos as public/private/restricted
-4. **Graceful Degradation**: Continue with accessible repos only
-
-### Enhanced Configuration Schema
-```yaml
-# config.yaml - Enhanced for private repos
-github:
-  token: "ghp_xxx"
-  token_scopes: ["repo", "public_repo", "read:user"]
-  repos:
-    - "username/public-repo"     # ✅ Public repo
-    - "username/private-repo"    # ✅ Private repo (if token has 'repo' scope)
-    - "org/restricted-repo"      # ❌ Access denied (insufficient permissions)
-  rate_limit: 5000
-  private_repo_support: true
-```
-
-### Error Handling for Private Repos
-```bash
-$ bigfoot init
-🔧 Setting up BigFoot...
-
-🔑 Step 1: GitHub Authentication
-? GitHub token: [paste token]
-  ✅ Token validated (scopes: repo, public_repo, read:user)
-
-📁 Step 2: Repository Configuration  
-? Add repositories: username/private-repo, org/restricted-repo
-  🔍 Validating repository access...
-  ✅ username/private-repo (private, accessible)
-  ❌ org/restricted-repo (access denied - insufficient permissions)
-  
-  ⚠️  Some repositories are inaccessible
-  💡 Quick fixes:
-     • For private repos: Regenerate token with 'repo' scope
-     • For org repos: Check organization access permissions
-  
-  ? Continue with accessible repositories? [Y/n] Y
-  ✅ Configuration saved! 1 repository added.
-```
-
-## Security Considerations
-
-- **Token Security**: Encrypted storage of GitHub tokens
-- **Input Validation**: Sanitize all user inputs
-- **SQL Injection**: Use parameterized queries
-- **Permission Validation**: Verify token scopes before API calls
-- **Access Control**: Respect repository visibility and permissions
-
-## Testing Strategy
-
-- **Unit Tests**: 80%+ code coverage for core functionality
-- **Integration Tests**: End-to-end workflow testing
-- **Mock Testing**: GitHub API mocking for reliable tests
-
-## Implementation Phases
-
-### Phase 1: Core MVP (Week 1-2)
-- [ ] **CLI Foundation**: Click-based CLI with track/status commands
-- [ ] **Database Layer**: SQLite with proper schema and migrations
-- [ ] **GitHub Integration**: API client with rate limiting and error handling
-- [ ] **Basic Tracking**: Commit collection and storage
-- [ ] **Simple Streaks**: Basic streak calculation logic
-- [ ] **Unit Tests**: Core functionality test coverage
-
-### Phase 2: Polish & Private Repos (Week 3)
-- [ ] **Rich Terminal Output**: Colors, progress bars, emojis using Rich
-- [ ] **Visual Hierarchy**: Consistent spacing, alignment, and typography
-- [ ] **Interactive Setup**: Guided onboarding with validation and feedback
-- [ ] **Smart Error Messages**: Context-aware error handling with recovery hints
-- [ ] **Command Help**: Contextual help with examples and quick reference
-- [ ] **Installation**: pip package and setup script
-- [ ] **Private Repository Support**: Smart validation and permission management
-- [ ] **Repository Access Validation**: Check repo permissions during setup
-- [ ] **Enhanced Error Handling**: Clear messages for permission issues
-
-### Phase 3: Motivation Engine (Week 4)
-- [ ] **Achievement System**: Milestone detection and rewards
-- [ ] **Progress Visualization**: ASCII charts and progress indicators
-- [ ] **Smart Notifications**: Context-aware motivational messages
-- [ ] **Pace Projections**: Future commit predictions
-- [ ] **Integration Tests**: End-to-end workflow testing
-
-### Phase 4: Production Ready (Week 5)
-- [ ] **Performance Optimization**: Database queries and API calls
-- [ ] **Documentation**: README, user guide, API docs
-- [ ] **Packaging**: PyPI distribution and installation
-- [ ] **Monitoring**: Basic health checks and diagnostics
+- New numbers on the dashboard: add a query to `store.py`, a field to
+  `stats.Snapshot`, then render it. Do not compute in the renderer.
+- New date logic: it belongs in `stats.py` as a pure function taking `today` as
+  an argument. Every function there does, which is why they are testable.
+- A schema change needs `SCHEMA_VERSION` bumped and a migration path in
+  `Store._migrate()`. The database is the user's history; upgrades must not
+  destroy it. That was the 0.x failure of shipping the database inside the
+  installed package.
+- A runtime dependency needs a very good argument. The zero-dependency install
+  is a feature people came for.
