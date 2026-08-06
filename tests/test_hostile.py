@@ -12,10 +12,10 @@ from datetime import date, timedelta
 
 import pytest
 
-from bigfoot import config, gitscan, stats
-from bigfoot.gitscan import FIELD_SEP, RECORD_SEP
-from bigfoot.store import Commit, Store
-from bigfoot.term import sanitize
+from gitfoot import config, gitscan, stats
+from gitfoot.gitscan import FIELD_SEP, RECORD_SEP
+from gitfoot.store import Commit, Store
+from gitfoot.term import sanitize
 
 MINE = {"victim@example.com"}
 

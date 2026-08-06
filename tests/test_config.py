@@ -2,7 +2,7 @@
 
 Every test here runs against ``tmp_path`` with the environment monkeypatched by
 the autouse fixture in ``conftest.py``: the suite must never read or write the
-developer's real ``~/.config/bigfoot`` or ``~/.local/share/bigfoot``, and must
+developer's real ``~/.config/gitfoot`` or ``~/.local/share/gitfoot``, and must
 never pick up their real git identity.
 """
 
@@ -13,8 +13,8 @@ import subprocess
 
 import pytest
 
-from bigfoot import config
-from bigfoot.config import DEFAULT_IGNORE_DIRS, DEFAULT_MAX_DEPTH, Config
+from gitfoot import config
+from gitfoot.config import DEFAULT_IGNORE_DIRS, DEFAULT_MAX_DEPTH, Config
 
 running_as_root = hasattr(os, "geteuid") and os.geteuid() == 0
 
@@ -22,17 +22,17 @@ running_as_root = hasattr(os, "geteuid") and os.geteuid() == 0
 # -- where things live ---------------------------------------------------
 
 
-def test_bigfoot_home_relocates_both_config_and_data(tmp_path, monkeypatch):
-    monkeypatch.setenv("BIGFOOT_HOME", str(tmp_path / "bf"))
+def test_gitfoot_home_relocates_both_config_and_data(tmp_path, monkeypatch):
+    monkeypatch.setenv("GITFOOT_HOME", str(tmp_path / "bf"))
 
     assert config.config_dir() == tmp_path / "bf"
     assert config.data_dir() == tmp_path / "bf"
     assert config.config_path() == tmp_path / "bf" / "config.toml"
-    assert config.db_path() == tmp_path / "bf" / "bigfoot.db"
+    assert config.db_path() == tmp_path / "bf" / "gitfoot.db"
 
 
-def test_bigfoot_home_wins_over_the_xdg_variables(tmp_path, monkeypatch):
-    monkeypatch.setenv("BIGFOOT_HOME", str(tmp_path / "bf"))
+def test_gitfoot_home_wins_over_the_xdg_variables(tmp_path, monkeypatch):
+    monkeypatch.setenv("GITFOOT_HOME", str(tmp_path / "bf"))
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "xdg-config"))
     monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "xdg-data"))
 
@@ -40,23 +40,23 @@ def test_bigfoot_home_wins_over_the_xdg_variables(tmp_path, monkeypatch):
     assert config.data_dir() == tmp_path / "bf"
 
 
-def test_bigfoot_home_expands_a_tilde(monkeypatch, hermetic_env):
-    monkeypatch.setenv("BIGFOOT_HOME", "~/bigfoot-elsewhere")
+def test_gitfoot_home_expands_a_tilde(monkeypatch, hermetic_env):
+    monkeypatch.setenv("GITFOOT_HOME", "~/gitfoot-elsewhere")
 
-    assert config.config_dir() == hermetic_env / "bigfoot-elsewhere"
+    assert config.config_dir() == hermetic_env / "gitfoot-elsewhere"
 
 
 def test_xdg_config_home_and_xdg_data_home_are_respected(tmp_path, monkeypatch):
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "xdg-config"))
     monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "xdg-data"))
 
-    assert config.config_dir() == tmp_path / "xdg-config" / "bigfoot"
-    assert config.data_dir() == tmp_path / "xdg-data" / "bigfoot"
+    assert config.config_dir() == tmp_path / "xdg-config" / "gitfoot"
+    assert config.data_dir() == tmp_path / "xdg-data" / "gitfoot"
 
 
 def test_without_any_environment_the_xdg_defaults_under_home_are_used(hermetic_env):
-    assert config.config_dir() == hermetic_env / ".config" / "bigfoot"
-    assert config.data_dir() == hermetic_env / ".local" / "share" / "bigfoot"
+    assert config.config_dir() == hermetic_env / ".config" / "gitfoot"
+    assert config.data_dir() == hermetic_env / ".local" / "share" / "gitfoot"
 
 
 # -- round trip ----------------------------------------------------------

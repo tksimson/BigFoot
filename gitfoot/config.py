@@ -1,11 +1,11 @@
 """Paths, configuration, and author identity.
 
-Config lives at ``$XDG_CONFIG_HOME/bigfoot/config.toml`` and is read with the
+Config lives at ``$XDG_CONFIG_HOME/gitfoot/config.toml`` and is read with the
 stdlib ``tomllib``. It is written by hand -- the schema is four keys, and a TOML
 writer is not worth a dependency.
 
-Set ``BIGFOOT_HOME`` to relocate both config and data (useful for tests and for
-keeping BigFoot inside a dotfiles repo).
+Set ``GITFOOT_HOME`` to relocate both config and data (useful for tests and for
+keeping GitFoot inside a dotfiles repo).
 """
 
 from __future__ import annotations
@@ -70,7 +70,7 @@ DEFAULT_MAX_DEPTH = 6
 
 
 def _home() -> Path | None:
-    override = os.environ.get("BIGFOOT_HOME")
+    override = os.environ.get("GITFOOT_HOME")
     return Path(override).expanduser() if override else None
 
 
@@ -81,17 +81,17 @@ def config_dir() -> Path:
         return override
     base = os.environ.get("XDG_CONFIG_HOME")
     root = Path(base).expanduser() if base else Path.home() / ".config"
-    return root / "bigfoot"
+    return root / "gitfoot"
 
 
 def data_dir() -> Path:
-    """Directory holding ``bigfoot.db``."""
+    """Directory holding ``gitfoot.db``."""
     override = _home()
     if override:
         return override
     base = os.environ.get("XDG_DATA_HOME")
     root = Path(base).expanduser() if base else Path.home() / ".local" / "share"
-    return root / "bigfoot"
+    return root / "gitfoot"
 
 
 def config_path() -> Path:
@@ -99,7 +99,7 @@ def config_path() -> Path:
 
 
 def db_path() -> Path:
-    return data_dir() / "bigfoot.db"
+    return data_dir() / "gitfoot.db"
 
 
 @dataclass
@@ -107,7 +107,7 @@ class Config:
     """Resolved configuration.
 
     ``roots`` are the directories scanned for git repositories. An empty list
-    means the user has not chosen any yet -- BigFoot asks rather than guessing,
+    means the user has not chosen any yet -- GitFoot asks rather than guessing,
     because silently walking someone's home directory is not ours to do.
     """
 
@@ -153,8 +153,8 @@ def save(cfg: Config) -> Path:
     """Write config to disk, creating the directory if needed."""
     cfg.path.parent.mkdir(parents=True, exist_ok=True)
     body = [
-        "# BigFoot configuration",
-        "# https://github.com/tksimson/bigfoot",
+        "# GitFoot configuration",
+        "# https://github.com/tksimson/gitfoot",
         "",
         "# Directories scanned for git repositories.",
         _toml_array("roots", cfg.roots),
@@ -259,7 +259,7 @@ def _escape(value: str) -> str:
 
     Control characters are illegal raw in TOML, and ``load`` falls back to
     defaults on a parse error. Writing one unescaped would therefore not just
-    corrupt the file, it would make BigFoot look unconfigured, and the next
+    corrupt the file, it would make GitFoot look unconfigured, and the next
     save would overwrite the settings for good.
     """
     out = value.replace("\\", "\\\\").replace('"', '\\"')

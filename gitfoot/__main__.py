@@ -1,4 +1,4 @@
-"""Entry point for ``python -m bigfoot``."""
+"""Entry point for ``python -m gitfoot``."""
 
 import sys
 

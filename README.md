@@ -1,16 +1,16 @@
-# bigfoot
+# gitfoot
 
 A local git activity tracker. Run it, see whether you showed up.
 
 ## Commit count is not productivity
 
-It isn't, and bigfoot doesn't claim it is. A day of hard thinking can produce
+It isn't, and gitfoot doesn't claim it is. A day of hard thinking can produce
 one commit. A day of nothing can produce twelve. Anyone who has shipped
 software knows this.
 
 What a commit history does record is attendance. Days you opened the editor,
 days you didn't, and how long the current run is. That is the whole claim.
-bigfoot is a mirror, not a score. There is no leaderboard, no ranking, no
+gitfoot is a mirror, not a score. There is no leaderboard, no ranking, no
 badge, and nothing to optimise against.
 
 If you want it to say you were productive, you will have to lie to it.
@@ -41,9 +41,9 @@ a light background, and a pipe. The bottom two rows are the weekend.
 ## Install
 
 ```bash
-uvx bigfoot          # run it without installing
-pipx install bigfoot # keep it on PATH, isolated
-pip install bigfoot
+uvx gitfoot          # run it without installing
+pipx install gitfoot # keep it on PATH, isolated
+pip install gitfoot
 ```
 
 Python 3.11+ and git. Zero runtime dependencies: no click, no rich, no
@@ -53,9 +53,9 @@ one pure-Python package and the standard library.
 ## Use
 
 ```bash
-bigfoot init   # pick the directories to scan, confirm which commits are yours
-bigfoot sync   # read new commits
-bigfoot        # the dashboard
+gitfoot init   # pick the directories to scan, confirm which commits are yours
+gitfoot sync   # read new commits
+gitfoot        # the dashboard
 ```
 
 `init` runs a full-history sync when it finishes, so the first dashboard has
@@ -73,29 +73,29 @@ week of overlap to absorb rebases and clock skew. Re-running is always safe,
 because commits are keyed by SHA. To widen the range:
 
 ```bash
-bigfoot sync --days 90          # re-read the last 90 days
-bigfoot sync --since 2024-01-01 # re-read from a date
-bigfoot sync --all              # re-read complete history
-bigfoot sync -q                 # only report errors, for cron and shell hooks
+gitfoot sync --days 90          # re-read the last 90 days
+gitfoot sync --since 2024-01-01 # re-read from a date
+gitfoot sync --all              # re-read complete history
+gitfoot sync -q                 # only report errors, for cron and shell hooks
 ```
 
 The dashboard takes `--weeks N` for the size of the activity calendar. The
 default is 52, a year, which fits in an 80-column terminal:
 
 ```bash
-bigfoot --weeks 13
+gitfoot --weeks 13
 ```
 
 Other commands:
 
 ```bash
-bigfoot repos                   # tracked repositories and scan roots
-bigfoot repos --add ~/clients   # add a scan root
-bigfoot repos --remove ~/old    # stop scanning a root, and forget its history
-bigfoot config                  # current settings and where they live
-bigfoot config --path           # just the config file path
-bigfoot config --add-email me@work.example
-bigfoot doctor                  # git, config, identity, database, history
+gitfoot repos                   # tracked repositories and scan roots
+gitfoot repos --add ~/clients   # add a scan root
+gitfoot repos --remove ~/old    # stop scanning a root, and forget its history
+gitfoot config                  # current settings and where they live
+gitfoot config --path           # just the config file path
+gitfoot config --add-email me@work.example
+gitfoot doctor                  # git, config, identity, database, history
 ```
 
 Global flags, accepted before or after the subcommand: `--json`, `--no-color`,
@@ -108,7 +108,7 @@ account, no API key. The only imports are stdlib, and the check takes ten
 seconds:
 
 ```bash
-grep -rnE '^\s*(import|from) ' bigfoot/ | grep -E 'urllib|http|socket|ssl|requests'
+grep -rnE '^\s*(import|from) ' gitfoot/ | grep -E 'urllib|http|socket|ssl|requests'
 ```
 
 That comes back empty. Verify it rather than take my word. The unanchored
@@ -119,15 +119,15 @@ All the state is two files, both under standard XDG paths:
 
 | What | Where |
 | --- | --- |
-| database | `$XDG_DATA_HOME/bigfoot/bigfoot.db`, default `~/.local/share/bigfoot/bigfoot.db` |
-| config | `$XDG_CONFIG_HOME/bigfoot/config.toml`, default `~/.config/bigfoot/config.toml` |
+| database | `$XDG_DATA_HOME/gitfoot/gitfoot.db`, default `~/.local/share/gitfoot/gitfoot.db` |
+| config | `$XDG_CONFIG_HOME/gitfoot/config.toml`, default `~/.config/gitfoot/config.toml` |
 
-`BIGFOOT_HOME=/path` relocates both, which is how you keep the whole thing
+`GITFOOT_HOME=/path` relocates both, which is how you keep the whole thing
 inside a dotfiles repo or throw it away after trying it. `--db PATH` points a
 single invocation at a different database. Deleting the two files above is a
 complete uninstall of your data.
 
-bigfoot reads commit SHAs, dates, author emails and diff line counts. It does
+gitfoot reads commit SHAs, dates, author emails and diff line counts. It does
 not read commit messages, file names, file contents, or branch names.
 
 ## How it decides what's yours
@@ -135,7 +135,7 @@ not read commit messages, file names, file contents, or branch names.
 Only commits whose author email is in your configured list.
 
 Most people have committed under more than one address over the years: a work
-one, a personal one, a GitHub noreply. So `bigfoot init` counts the author
+one, a personal one, a GitHub noreply. So `gitfoot init` counts the author
 emails across the repositories it found, shows them with commit counts, marks
 the ones git already knows are yours, and asks about the rest:
 
@@ -163,8 +163,8 @@ the git-configured identities without asking.
 The list grows later with:
 
 ```bash
-bigfoot config --add-email me@work.example
-bigfoot sync --all
+gitfoot config --add-email me@work.example
+gitfoot sync --all
 ```
 
 An empty email list matches nothing rather than everything. Two more rules
@@ -184,17 +184,17 @@ the flags that already do one thing: `config --path` prints a path, and
 `repos --add` / `--remove` print a confirmation line.
 
 ```bash
-bigfoot --json | jq '.streak.current'
-bigfoot --json | jq -r '.days | to_entries[] | select(.value > 0) | "\(.key)\t\(.value)"'
-bigfoot sync --json | jq '.commits_new'
-bigfoot repos --json | jq -r '.repositories[] | "\(.commits)\t\(.name)"' | sort -rn | head
-bigfoot doctor --json | jq -e 'all(.checks[]; .ok)'
+gitfoot --json | jq '.streak.current'
+gitfoot --json | jq -r '.days | to_entries[] | select(.value > 0) | "\(.key)\t\(.value)"'
+gitfoot sync --json | jq '.commits_new'
+gitfoot repos --json | jq -r '.repositories[] | "\(.commits)\t\(.name)"' | sort -rn | head
+gitfoot doctor --json | jq -e 'all(.checks[]; .ok)'
 ```
 
 Useful in a shell prompt:
 
 ```bash
-printf 'streak: %s\n' "$(bigfoot --json | jq -r '.streak.current')"
+printf 'streak: %s\n' "$(gitfoot --json | jq -r '.streak.current')"
 ```
 
 Progress output goes to stderr, so pipes stay clean without `-q`.
@@ -209,13 +209,13 @@ Honest list, not a roadmap.
 - **Co-authored commits count once, for the author.** `Co-authored-by` trailers
   are not parsed, so pairing shows up only in the driver's history.
 - **Rewritten history leaves orphans.** Commits recorded before a rebase keep
-  their rows, because bigfoot never deletes. `--all` re-reads but does not prune.
+  their rows, because gitfoot never deletes. `--all` re-reads but does not prune.
 - **Discovery stops at the first `.git` it finds.** Submodules and vendored
   checkouts inside a project are not counted separately. Nested independent
   repositories are invisible.
 - **Discovery is a list, not a heuristic.** Scan depth (6 levels below a root)
   and the skipped directory names are both in `config.toml`, and a repository
-  outside those rules is simply not seen. `bigfoot repos` shows what was found,
+  outside those rules is simply not seen. `gitfoot repos` shows what was found,
   which is the fastest way to notice something missing.
 - **Author dates, in whatever timezone the machine had at commit time.** Travel
   or a badly set clock will put a commit on the wrong day, and `git commit

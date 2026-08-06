@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "bigfoot"
+name = "gitfoot"
 dynamic = ["version"]
 description = "Your local git activity, at a glance. Nothing leaves your machine."
 readme = "README.md"
@@ -25,7 +25,7 @@ classifiers = [
     "Topic :: Utilities",
 ]
 
-# Zero runtime dependencies, on purpose. Everything BigFoot needs is in the
+# Zero runtime dependencies, on purpose. Everything GitFoot needs is in the
 # standard library, so it installs instantly and cannot break on a resolver.
 dependencies = []
 
@@ -33,16 +33,16 @@ dependencies = []
 dev = ["pytest"]
 
 [project.scripts]
-bigfoot = "bigfoot.cli:main"
+gitfoot = "gitfoot.cli:main"
 
 [project.urls]
-Homepage = "https://github.com/tksimson/BigFoot"
-Source = "https://github.com/tksimson/BigFoot"
-Issues = "https://github.com/tksimson/BigFoot/issues"
-Changelog = "https://github.com/tksimson/BigFoot/blob/main/CHANGELOG.md"
+Homepage = "https://github.com/tksimson/gitfoot"
+Source = "https://github.com/tksimson/gitfoot"
+Issues = "https://github.com/tksimson/gitfoot/issues"
+Changelog = "https://github.com/tksimson/gitfoot/blob/main/CHANGELOG.md"
 
 [tool.hatch.version]
-path = "bigfoot/__init__.py"
+path = "gitfoot/__init__.py"
 
 [tool.hatch.build]
 # Nothing dirty ships today because .gitignore already covers it, but a
@@ -50,10 +50,10 @@ path = "bigfoot/__init__.py"
 exclude = ["**/*.db", "**/*.db-wal", "**/*.db-shm", "**/*.sqlite", "**/__pycache__"]
 
 [tool.hatch.build.targets.wheel]
-packages = ["bigfoot"]
+packages = ["gitfoot"]
 
 [tool.hatch.build.targets.sdist]
-include = ["bigfoot", "tests", "docs", "README.md", "CHANGELOG.md", "LICENSE"]
+include = ["gitfoot", "tests", "docs", "README.md", "CHANGELOG.md", "LICENSE"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

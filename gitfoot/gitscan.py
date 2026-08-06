@@ -172,8 +172,8 @@ _SCHEME = re.compile(r"^[a-zA-Z][\w+.-]*://")
 def normalize_remote(url: str) -> str:
     """Reduce a remote URL to a lowercase ``host/owner/repo`` key.
 
-    ``git@github.com:tksimson/BigFoot.git``, ``https://github.com/tksimson/BigFoot``,
-    ``ssh://git@github.com/tksimson/BigFoot.git/`` and ``github.com:tksimson/bigfoot``
+    ``git@github.com:tksimson/GitFoot.git``, ``https://github.com/tksimson/GitFoot``,
+    ``ssh://git@github.com/tksimson/GitFoot.git/`` and ``github.com:tksimson/gitfoot``
     all collapse to one key.
 
     The whole key is lowercased, not just the host. Two remotes for one project
@@ -397,7 +397,7 @@ def read_all(
 def author_counts(repos: Sequence[Found], workers: int = 8) -> list[tuple[str, int]]:
     """Every author email appearing in ``repos``, most prolific first.
 
-    Used only by ``bigfoot init``, to *ask* which addresses are yours. Most
+    Used only by ``gitfoot init``, to *ask* which addresses are yours. Most
     people commit under two or three over the years -- a work address, a
     personal one, a GitHub noreply -- and a tracker that silently knows about
     one of them undercounts and looks broken.

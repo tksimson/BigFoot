@@ -17,8 +17,8 @@ from datetime import date, timedelta
 import pytest
 from conftest import ME
 
-from bigfoot import cli, render, stats, term
-from bigfoot.store import Commit, Store
+from gitfoot import cli, render, stats, term
+from gitfoot.store import Commit, Store
 
 TODAY = date(2026, 8, 5)  # a Wednesday
 
@@ -167,27 +167,27 @@ def test_padding_is_measured_in_visible_columns():
 
 
 def test_an_unconfigured_install_is_told_to_run_init():
-    assert "bigfoot init" in render.first_run(plain(), configured=False)
+    assert "gitfoot init" in render.first_run(plain(), configured=False)
 
 
 def test_a_configured_but_empty_install_is_told_to_sync():
-    assert "bigfoot sync" in render.first_run(plain(), configured=True)
+    assert "gitfoot sync" in render.first_run(plain(), configured=True)
 
 
 # -- the CLI, run as a subprocess ----------------------------------------
 
 
 def run(*args: str, home, expect: int | None = 0, stdin: str = "") -> str:
-    """Invoke bigfoot the way a user does, in its own process."""
+    """Invoke gitfoot the way a user does, in its own process."""
     result = subprocess.run(
-        [sys.executable, "-m", "bigfoot", *args],
+        [sys.executable, "-m", "gitfoot", *args],
         capture_output=True,
         text=True,
         input=stdin,
         env={
             "PATH": "/usr/bin:/bin",
             "HOME": str(home),
-            "BIGFOOT_HOME": str(home / "bigfoot"),
+            "GITFOOT_HOME": str(home / "gitfoot"),
             "COLUMNS": "80",
             "NO_COLOR": "1",
             "PYTHONPATH": str(__import__("pathlib").Path(__file__).resolve().parent.parent),
@@ -199,7 +199,7 @@ def run(*args: str, home, expect: int | None = 0, stdin: str = "") -> str:
 
 
 def test_the_dashboard_of_an_unconfigured_install_explains_itself(tmp_path):
-    assert "bigfoot init" in run(home=tmp_path)
+    assert "gitfoot init" in run(home=tmp_path)
 
 
 def test_sync_without_configuration_fails_rather_than_guessing(tmp_path):
@@ -212,7 +212,7 @@ def test_init_without_a_terminal_refuses_to_assume_consent(tmp_path):
 
     run("init", home=tmp_path, expect=1)
 
-    assert not (tmp_path / "bigfoot" / "config.toml").exists()
+    assert not (tmp_path / "gitfoot" / "config.toml").exists()
 
 
 def test_a_full_run_reports_consistent_figures(tmp_path, make_repo):

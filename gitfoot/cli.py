@@ -1,7 +1,7 @@
 """Command line interface.
 
 argparse rather than click, because the whole point of this rewrite is that
-`bigfoot` installs instantly and cannot break on a dependency resolution. The
+`gitfoot` installs instantly and cannot break on a dependency resolution. The
 help text is hand-written for the same reason: it is the first thing anyone
 sees, and it should read like a manual page, not a pitch deck.
 """
@@ -57,7 +57,7 @@ def main(argv: list[str] | None = None) -> int:
     except BrokenPipeError:
         return 0
     except Exception as exc:
-        print(f"bigfoot: {exc}", file=sys.stderr)
+        print(f"gitfoot: {exc}", file=sys.stderr)
         return 1
 
 
@@ -103,8 +103,8 @@ def cmd_sync(args: argparse.Namespace, out: term.Terminal) -> int:
     emails = set(cfg.emails)
     if not emails:
         print(
-            "bigfoot: no author emails configured, so nothing can be attributed to you.\n"
-            "         run 'bigfoot config --add-email you@example.com'",
+            "gitfoot: no author emails configured, so nothing can be attributed to you.\n"
+            "         run 'gitfoot config --add-email you@example.com'",
             file=sys.stderr,
         )
         return 1
@@ -120,7 +120,7 @@ def cmd_sync(args: argparse.Namespace, out: term.Terminal) -> int:
     if not found:
         progress.clear()
         print(
-            f"bigfoot: no git repositories under {', '.join(cfg.roots)}",
+            f"gitfoot: no git repositories under {', '.join(cfg.roots)}",
             file=sys.stderr,
         )
         return 1
@@ -187,7 +187,7 @@ def cmd_sync(args: argparse.Namespace, out: term.Terminal) -> int:
         print(render.sync_summary(out, len(found), added, total, elapsed, errors))
     elif errors:
         for name, message in errors:
-            print(f"bigfoot: {name}: {message}", file=sys.stderr)
+            print(f"gitfoot: {name}: {message}", file=sys.stderr)
     return status
 
 
@@ -199,18 +199,18 @@ def cmd_repos(args: argparse.Namespace, out: term.Terminal) -> int:
         if missing:
             # A mistyped root would otherwise sit in the config forever,
             # contributing nothing and explaining nothing.
-            print(f"bigfoot: no such directory: {', '.join(missing)}", file=sys.stderr)
+            print(f"gitfoot: no such directory: {', '.join(missing)}", file=sys.stderr)
             return 1
         updated = config.with_roots(cfg, args.add)
         config.save(updated)
-        print(f"scanning {len(updated.roots)} directories. run 'bigfoot sync'.")
+        print(f"scanning {len(updated.roots)} directories. run 'gitfoot sync'.")
         return 0
 
     if args.remove:
         drop = [Path(p).expanduser().resolve() for p in args.remove]
         kept = [r for r in cfg.roots if Path(r) not in drop]
         if len(kept) == len(cfg.roots):
-            print(f"bigfoot: not a tracked root: {', '.join(args.remove)}", file=sys.stderr)
+            print(f"gitfoot: not a tracked root: {', '.join(args.remove)}", file=sys.stderr)
             return 1
         config.save(dataclasses.replace(cfg, roots=kept))
 
@@ -299,8 +299,8 @@ def cmd_init(args: argparse.Namespace, out: term.Terminal) -> int:
         suggested = [p for p in CANDIDATE_ROOTS if Path(p).expanduser().is_dir()]
         if not suggested:
             print(
-                "bigfoot: none of the usual project directories exist here.\n"
-                "         point it somewhere: bigfoot init --root ~/somewhere",
+                "gitfoot: none of the usual project directories exist here.\n"
+                "         point it somewhere: gitfoot init --root ~/somewhere",
                 file=sys.stderr,
             )
             return 1
@@ -310,13 +310,13 @@ def cmd_init(args: argparse.Namespace, out: term.Terminal) -> int:
             # silence. The whole point of offering rather than guessing is
             # lost if a redirected stdin counts as yes.
             print(
-                "bigfoot: not a terminal, so nothing was assumed.\n"
+                "gitfoot: not a terminal, so nothing was assumed.\n"
                 "         re-run with -y to accept these, or --root DIR to choose.",
                 file=sys.stderr,
             )
             return 1
         if interactive and not confirm("scan these?"):
-            print("nothing changed. try: bigfoot init --root ~/somewhere")
+            print("nothing changed. try: gitfoot init --root ~/somewhere")
             return 0
         roots = [str(Path(p).expanduser().resolve()) for p in suggested]
 
@@ -331,7 +331,7 @@ def cmd_init(args: argparse.Namespace, out: term.Terminal) -> int:
     progress.clear()
 
     if not found:
-        print(f"bigfoot: no git repositories under {', '.join(cfg.roots)}", file=sys.stderr)
+        print(f"gitfoot: no git repositories under {', '.join(cfg.roots)}", file=sys.stderr)
         return 1
 
     # Identities already known are yours whether or not they turn up in the
@@ -350,8 +350,8 @@ def cmd_init(args: argparse.Namespace, out: term.Terminal) -> int:
 
     if not mine:
         print(
-            "bigfoot: no identity chosen, so nothing would be counted.\n"
-            "         set git's user.email, or: bigfoot config --add-email you@example.com",
+            "gitfoot: no identity chosen, so nothing would be counted.\n"
+            "         set git's user.email, or: gitfoot config --add-email you@example.com",
             file=sys.stderr,
         )
         return 1
@@ -362,7 +362,7 @@ def cmd_init(args: argparse.Namespace, out: term.Terminal) -> int:
     print(f"config: {cfg.path}")
 
     if args.no_sync:
-        print("run 'bigfoot sync' when ready.")
+        print("run 'gitfoot sync' when ready.")
         return 0
 
     sync_args = argparse.Namespace(
@@ -545,19 +545,19 @@ def positive(value: str) -> int:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="bigfoot",
+        prog="gitfoot",
         description="Your local git activity, at a glance. Nothing leaves your machine.",
         epilog=(
-            "run 'bigfoot init' once, then 'bigfoot sync' whenever you want fresh numbers.\n"
+            "run 'gitfoot init' once, then 'gitfoot sync' whenever you want fresh numbers.\n"
             "commit counts are not productivity. this only shows whether you showed up."
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("--version", action="version", version=f"bigfoot {__version__}")
+    parser.add_argument("--version", action="version", version=f"gitfoot {__version__}")
     parser.set_defaults(command=None)
 
-    # Shared flags are attached to the bare `bigfoot` invocation *and* to every
-    # subcommand, so `bigfoot --json sync` and `bigfoot sync --json` both work.
+    # Shared flags are attached to the bare `gitfoot` invocation *and* to every
+    # subcommand, so `gitfoot --json sync` and `gitfoot sync --json` both work.
     # The subcommand copies suppress their defaults; otherwise argparse would
     # apply them after parsing and quietly clobber a flag given before the
     # subcommand name.

@@ -7,7 +7,7 @@ noise, punishes thinking, and can be gamed by anyone with a keyboard. If a
 manager ever points this tool at a team, that is misuse and the output will
 deserve everything said about it.
 
-bigfoot measures attendance, not output. Did you open the editor today. How
+gitfoot measures attendance, not output. Did you open the editor today. How
 long is the current run. That question has a real answer, and for people
 working alone on something long it is the question that matters, because the
 failure mode of a ten-year project is not writing bad code. It is quietly
@@ -23,7 +23,7 @@ No. There is no network code in the package: no telemetry, no update check, no
 crash reporting, no account, no key. The imports are stdlib only.
 
 ```bash
-grep -rnE '^\s*(import|from) ' bigfoot/ | grep -E 'urllib|http|socket|ssl|requests'
+grep -rnE '^\s*(import|from) ' gitfoot/ | grep -E 'urllib|http|socket|ssl|requests'
 ```
 
 Comes back empty. The only external program it runs is `git`, always with
@@ -34,13 +34,13 @@ Comes back empty. The only external program it runs is `git`, always with
 
 It doesn't, and it will not touch it unless you say so.
 
-`bigfoot init` offers a list of directories that commonly hold projects
+`gitfoot init` offers a list of directories that commonly hold projects
 (`~/dev`, `~/code`, `~/src`, `~/projects`, `~/work`, `~/repos`, `~/git`,
 `~/Documents/GitHub`), shows you the ones that actually exist, and waits for a
 yes. Nothing is scanned before that. If you would rather be exact:
 
 ```bash
-bigfoot init --root ~/dev/mine --email me@example.com -y
+gitfoot init --root ~/dev/mine --email me@example.com -y
 ```
 
 Scanning `~` directly works but is a bad idea: it is slow and it picks up every
@@ -60,12 +60,12 @@ is merge-heavy this makes your numbers lower and more honest.
 ## What about rebases?
 
 A rebase rewrites SHAs, so rebased commits look new and get inserted again. The
-old rows stay, because bigfoot never deletes. In practice this inflates a total
+old rows stay, because gitfoot never deletes. In practice this inflates a total
 slightly and leaves the day distribution roughly intact, since the author date
-survives a rebase (the committer date is what changes, and bigfoot uses the
+survives a rebase (the committer date is what changes, and gitfoot uses the
 author date).
 
-If it bothers you, delete the database and run `bigfoot sync --all`. There is
+If it bothers you, delete the database and run `gitfoot sync --all`. There is
 no pruning pass, and I would rather say that plainly than pretend the number is
 exact.
 
@@ -85,7 +85,7 @@ is deleted. After that it is gone.
 ## What about co-authored commits?
 
 Counted once, for the author. `Co-authored-by:` trailers are in the commit
-message body, which bigfoot does not read, so pairing shows up only in the
+message body, which gitfoot does not read, so pairing shows up only in the
 driver's history. If you pair heavily and take the passenger seat often, the
 dashboard will understate you.
 
@@ -98,15 +98,15 @@ Use it if it covers your work. Four reasons this exists:
 
 - **It only knows GitHub.** Work on GitLab, a self-hosted Gitea, a client's
   Bitbucket, or a repository that never leaves your laptop is invisible there.
-  bigfoot reads whatever is on your disk.
+  gitfoot reads whatever is on your disk.
 - **Private and unpushed work.** Commits sitting on a local branch you have not
   pushed count here and appear nowhere else.
 - **It is on the internet.** The graph is a public artefact with an audience,
   which is exactly the thing that turns attendance into performance.
-- **It is not scriptable.** `bigfoot --json | jq` is.
+- **It is not scriptable.** `gitfoot --json | jq` is.
 
 The costs are honest too: no cross-machine sync, no issues, no reviews, no PR
-activity. GitHub's graph counts things bigfoot cannot see.
+activity. GitHub's graph counts things gitfoot cannot see.
 
 ## Does it work with worktrees?
 
@@ -164,12 +164,12 @@ filesystem walk. Forty repositories on an SSD is a couple of seconds; the first
 last week plus whatever is new.
 
 Slow syncs almost always mean discovery is walking too much. Check
-`bigfoot repos` for entries you did not expect, then narrow your roots or add
+`gitfoot repos` for entries you did not expect, then narrow your roots or add
 directory names to `ignore_dirs` in `config.toml`.
 
 ## Can I run it automatically?
 
-Yes. `bigfoot sync -q` prints only errors and writes progress to stderr, which
+Yes. `gitfoot sync -q` prints only errors and writes progress to stderr, which
 makes it fine in cron, a systemd timer, or a shell hook. Concurrent syncs
 against one database are not supported; SQLite will serialise or error rather
 than corrupt anything, but do not schedule two at once.
@@ -179,8 +179,8 @@ than corrupt anything, but do not schedule two at once.
 Add both:
 
 ```bash
-bigfoot config --add-email old@example.com
-bigfoot sync --all
+gitfoot config --add-email old@example.com
+gitfoot sync --all
 ```
 
 The list only grows through this command and `init --email`. It is never
@@ -202,7 +202,7 @@ Yes, trivially, and it is worth being clear about how.
 Attribution is author-email equality and nothing else. Author email and author
 date are both chosen freely by whoever makes a commit, and both survive a clone.
 So a repository on your disk can contain commits authored as you, on any date,
-and bigfoot will count them. Clone something hostile into a scanned directory
+and gitfoot will count them. Clone something hostile into a scanned directory
 and your streak is whatever its author decided.
 
 Two dates that are obviously not real are refused: anything that is not a valid
@@ -212,19 +212,19 @@ stop forgery, because a plausible date is indistinguishable from a real one.
 
 This is not a defect that can be fixed locally. Signed commits would let a tool
 verify authorship, but almost nobody signs, and a tool that counted only signed
-commits would report zero for most people. So: bigfoot is a mirror you point at
+commits would report zero for most people. So: gitfoot is a mirror you point at
 yourself. It is not evidence, and it should never be treated as evidence about
 anybody, including you.
 
 The one thing it does guarantee is that it will not quietly credit you with
-someone else's work. Identity is the list you confirmed at `bigfoot init`, and
+someone else's work. Identity is the list you confirmed at `gitfoot init`, and
 nothing gets added to it without you saying so.
 
 ## How do I remove it?
 
 ```bash
-pipx uninstall bigfoot
-rm -rf ~/.local/share/bigfoot ~/.config/bigfoot
+pipx uninstall gitfoot
+rm -rf ~/.local/share/gitfoot ~/.config/gitfoot
 ```
 
 Those two directories are all of it. Nothing is written anywhere else, and
@@ -241,5 +241,5 @@ install is worth more than the compatibility.
 macOS and Linux are what it is used on daily. The code is `pathlib`,
 `subprocess` and `sqlite3` with no platform-specific calls, so Windows should
 work; XDG variables fall back to `~/.config` and `~/.local/share` there, which
-is not the Windows convention. `BIGFOOT_HOME` sets both explicitly. Reports
+is not the Windows convention. `GITFOOT_HOME` sets both explicitly. Reports
 welcome.

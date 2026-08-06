@@ -17,8 +17,8 @@ venv/
 .coverage
 htmlcov/
 
-# BigFoot data (the real database lives under XDG paths, but --db and
-# BIGFOOT_HOME can put one here)
+# GitFoot data (the real database lives under XDG paths, but --db and
+# GITFOOT_HOME can put one here)
 *.db
 *.db-wal
 *.db-shm

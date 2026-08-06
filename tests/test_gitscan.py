@@ -14,8 +14,8 @@ import threading
 import pytest
 from conftest import COLLEAGUE, ME, plain_dir
 
-from bigfoot import gitscan
-from bigfoot.gitscan import FIELD_SEP, RECORD_SEP
+from gitfoot import gitscan
+from gitfoot.gitscan import FIELD_SEP, RECORD_SEP
 
 # -- attribution ---------------------------------------------------------
 
@@ -215,18 +215,18 @@ def test_parse_log_of_empty_output_yields_nothing():
 # -- repository identity -------------------------------------------------
 
 EQUIVALENT_REMOTES = [
-    "git@github.com:tksimson/BigFoot.git",
-    "git@github.com:tksimson/BigFoot",
-    "GIT@GitHub.com:tksimson/BigFoot.git",
-    "https://github.com/tksimson/BigFoot",
-    "https://github.com/tksimson/BigFoot.git",
-    "https://github.com/tksimson/BigFoot/",
-    "https://github.com/tksimson/BigFoot.git/",
-    "ssh://git@github.com/tksimson/BigFoot.git",
-    "ssh://git@github.com:22/tksimson/BigFoot.git",
-    "git://github.com/tksimson/BigFoot.git",
-    "https://tksimson:token@github.com/tksimson/BigFoot.git",
-    "  https://github.com/tksimson/BigFoot.git  ",
+    "git@github.com:tksimson/GitFoot.git",
+    "git@github.com:tksimson/GitFoot",
+    "GIT@GitHub.com:tksimson/GitFoot.git",
+    "https://github.com/tksimson/GitFoot",
+    "https://github.com/tksimson/GitFoot.git",
+    "https://github.com/tksimson/GitFoot/",
+    "https://github.com/tksimson/GitFoot.git/",
+    "ssh://git@github.com/tksimson/GitFoot.git",
+    "ssh://git@github.com:22/tksimson/GitFoot.git",
+    "git://github.com/tksimson/GitFoot.git",
+    "https://tksimson:token@github.com/tksimson/GitFoot.git",
+    "  https://github.com/tksimson/GitFoot.git  ",
 ]
 
 
@@ -235,19 +235,19 @@ def test_every_url_form_of_one_remote_gives_one_key(url):
     # The whole key is lowercased, not just the host: two remotes for one
     # project differing only in capitalisation is common, two different
     # projects differing only in capitalisation is not.
-    assert gitscan.normalize_remote(url) == "github.com/tksimson/bigfoot"
+    assert gitscan.normalize_remote(url) == "github.com/tksimson/gitfoot"
 
 
 @pytest.mark.parametrize(
     "url",
     [
-        "https://gitlab.com/tksimson/BigFoot.git",  # different host
-        "git@github.com:someone-else/BigFoot.git",  # different owner
+        "https://gitlab.com/tksimson/GitFoot.git",  # different host
+        "git@github.com:someone-else/GitFoot.git",  # different owner
         "git@github.com:tksimson/OtherProject.git",  # different repo
     ],
 )
 def test_different_hosts_owners_or_names_give_different_keys(url):
-    assert gitscan.normalize_remote(url) != "github.com/tksimson/BigFoot"
+    assert gitscan.normalize_remote(url) != "github.com/tksimson/GitFoot"
 
 
 def test_a_local_path_remote_is_keyed_by_that_path():

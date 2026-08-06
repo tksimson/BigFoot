@@ -42,14 +42,15 @@ counted once.
 `host/owner/repo`:
 
 ```
-git@github.com:tksimson/BigFoot.git
-https://github.com/tksimson/BigFoot
-ssh://git@github.com/tksimson/BigFoot.git
-        > github.com/tksimson/BigFoot
+git@github.com:tksimson/GitFoot.git
+https://github.com/tksimson/GitFoot
+ssh://git@github.com/tksimson/GitFoot.git
+        > github.com/tksimson/gitfoot
 ```
 
-The host is lowercased; the path is not, because on some hosts it is
-case-significant.
+The whole key is lowercased, host and path alike. Two remotes for one project
+differing only in capitalisation is a real and common thing; two genuinely
+different projects on one machine differing only in capitalisation is not.
 
 Repos with no remote fall back to `path:<resolved path>`.
 
@@ -58,8 +59,8 @@ Repos with no remote fall back to `path:<resolved path>`.
 each other's history. Basename is not an identity; it is a display name, and it
 is still used as one in the `name` column.
 
-The upside of remote-keying is that clones collapse. `~/dev/bigfoot` and
-`/tmp/bigfoot-review` are one entry with one set of commits, not a doubled
+The upside of remote-keying is that clones collapse. `~/dev/gitfoot` and
+`/tmp/gitfoot-review` are one entry with one set of commits, not a doubled
 streak. The downside is that a fork and its upstream share a key when the fork
 has no distinct remote configured, which is the right call far more often than
 not.
@@ -123,7 +124,7 @@ Details that matter if you touch this:
 nothing else. 0.x harvested every author from the last 100 commits of each
 repository, which meant that in any shared repo your colleagues' work was
 recorded as yours. Additional addresses are added explicitly with
-`bigfoot config --add-email`.
+`gitfoot config --add-email`.
 
 `parse_log()` treats an empty email set as matching nothing, deliberately. The
 failure mode of a wrong default here is silently inflating someone's numbers,

@@ -1,6 +1,6 @@
 """Terminal capabilities and a very small ANSI toolkit.
 
-Nothing here knows what BigFoot displays. The renderer owns the layout and asks
+Nothing here knows what GitFoot displays. The renderer owns the layout and asks
 this module only three things: may I use colour, how many colours, and which
 glyphs survive this terminal. Keeping those apart is what lets the dashboard be
 tested as plain text -- build a ``Term`` with colour off and the output is
@@ -24,7 +24,7 @@ from enum import IntEnum
 from typing import IO
 
 # Matches SGR sequences only, which is all we emit. Cursor movement and the rest
-# of the ANSI zoo never appear in a string BigFoot produces.
+# of the ANSI zoo never appear in a string GitFoot produces.
 _SGR = re.compile(r"\x1b\[[0-9;]*m")
 
 RESET = "\x1b[0m"
@@ -274,12 +274,12 @@ def strip_ansi(text: str) -> str:
 
 
 def sanitize(text: str) -> str:
-    """Strip control characters from text BigFoot did not write itself.
+    """Strip control characters from text GitFoot did not write itself.
 
     Author emails, repository names and git's own error messages all end up on
     screen, and all three are chosen by whoever made the repository. A carriage
     return or an OSC sequence in an email address lets a commit redraw the line
-    it is printed on. That matters most at the ``bigfoot init`` prompt, where
+    it is printed on. That matters most at the ``gitfoot init`` prompt, where
     the user picks an identity by number from a list of these strings: an entry
     that repaints itself to look like the user's own address gets added to the
     identity list by hand.

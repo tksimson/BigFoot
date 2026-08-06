@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.0.0] - 2026-08-05
 
+Published as `gitfoot`. The project was developed under the name BigFoot, but
+`bigfoot` on PyPI is an unrelated package, so the distribution, the command and
+the module are all `gitfoot`. Nothing was ever released under the old name, so
+there is nothing to migrate.
+
 A full rewrite. The 0.x line counted commits that were not yours, lost history
 on upgrade, and double counted by design. Every one of those is a schema or an
 identity problem, so the schema and the identity rules were replaced rather
@@ -16,7 +21,7 @@ than patched.
 
 Upgrading from 0.x: there is no migration. The old database lived inside the
 installed package and its numbers cannot be trusted, so it is not read. Run
-`bigfoot init` and then `bigfoot sync --all` to rebuild from your repositories,
+`gitfoot init` and then `gitfoot sync --all` to rebuild from your repositories,
 which is fast and produces correct numbers.
 
 ### Fixed
@@ -25,7 +30,7 @@ which is fast and produces correct numbers.
   identity was harvested from every author in the last 100 commits of each
   repository, so in any shared repo your colleagues' work landed in your
   totals. Identity now comes from `git config user.email` (global and system)
-  plus addresses added explicitly with `bigfoot config --add-email`, and an
+  plus addresses added explicitly with `gitfoot config --add-email`, and an
   empty list matches nothing rather than everything.
 - **Repositories collided by name.** Repos were keyed by directory basename
   under a `UNIQUE(repo, date)` constraint, so `~/work/api` and `~/oss/api`
@@ -35,7 +40,7 @@ which is fast and produces correct numbers.
   single entry instead of doubling it.
 - **Upgrading destroyed history.** The database was created inside the
   installed package directory, so reinstalling or upgrading wiped it. It now
-  lives at `$XDG_DATA_HOME/bigfoot/bigfoot.db`, with `BIGFOOT_HOME` to
+  lives at `$XDG_DATA_HOME/gitfoot/gitfoot.db`, with `GITFOOT_HOME` to
   relocate it and `--db` to override it per invocation.
 - **Every repository was discovered two or three times.** The default scan
   roots overlapped (`~/dev` inside `~`) and each was walked separately.
@@ -61,13 +66,13 @@ Found by the new test suite while writing it, and fixed before release:
 - **`max_depth = true` was accepted as a depth of 1.** `bool` subclasses
   `int`, so the validation passed and discovery silently found almost nothing.
 - **Case-varying remotes produced separate repositories.** Only the host was
-  lowercased, so `github.com/TKSimson/BigFoot` and `github.com/tksimson/BigFoot`
+  lowercased, so `github.com/TKSimson/GitFoot` and `github.com/tksimson/GitFoot`
   were two projects. The whole key is now lowercased, with display names
   keeping their original capitalisation.
 - **`git log`-style remotes without a user prefix fell back to a path key.**
   `github.com:owner/repo` is valid scp-style syntax that git accepts; it now
   normalises like the rest.
-- **`bigfoot doctor` exited non-zero on a correct but unsynced install**, so
+- **`gitfoot doctor` exited non-zero on a correct but unsynced install**, so
   it could not be used as a health check in a script.
 - **A sync in which every repository failed still exited 0**, letting a broken
   cron job look healthy indefinitely.
@@ -91,16 +96,16 @@ people. Found in review, fixed before release:
   plausible range are now refused when read.
 - **Terminal escape sequences from a repository reached the terminal.** Author
   emails and repository names are displayed verbatim, including at the
-  `bigfoot init` prompt where identities are chosen from a numbered list. A
+  `gitfoot init` prompt where identities are chosen from a numbered list. A
   carriage return or OSC sequence in an email could repaint that line to look
   like the user's own address. Control characters are now stripped on the way in.
 - **A control character in a harvested email destroyed the config.** It was
   written unescaped, TOML then rejected the file, and the fallback to defaults
-  made BigFoot look unconfigured until the next save overwrote the settings.
+  made GitFoot look unconfigured until the next save overwrote the settings.
 - **`sync --all` read nothing east of UTC.** Full history was expressed as
   `--since=1970-01-01`, which becomes a negative timestamp in any timezone
   ahead of UTC. git rejects it and returns no commits, so the command reported
-  success having recorded nothing, and `bigfoot init` inherited the same
+  success having recorded nothing, and `gitfoot init` inherited the same
   failure on its first sync. It worked in London and failed in Warsaw. Full
   history now passes no `--since` argument at all.
 - **A future-dated commit propped up a dead streak.** The current run was
@@ -135,7 +140,7 @@ people. Found in review, fixed before release:
   `python-dateutil` for `argparse`, hand-written ANSI output, `tomllib` and
   `datetime`. Install is one pure-Python package with nothing to resolve.
 - **Configuration is TOML at an XDG path**
-  (`$XDG_CONFIG_HOME/bigfoot/config.toml`), read with the stdlib `tomllib` and
+  (`$XDG_CONFIG_HOME/gitfoot/config.toml`), read with the stdlib `tomllib` and
   written by hand. It holds `roots`, `emails`, `ignore_dirs` and `max_depth`,
   and it is a file you can read and edit.
 - Merge commits are excluded, and all refs are scanned rather than just the
@@ -153,5 +158,5 @@ people. Found in review, fixed before release:
 - Randomised motivational messaging.
 - `track` and `backfill`, replaced by `sync`.
 
-[Unreleased]: https://github.com/tksimson/BigFoot/compare/v1.0.0...HEAD
-[1.0.0]: https://github.com/tksimson/BigFoot/releases/tag/v1.0.0
+[Unreleased]: https://github.com/tksimson/GitFoot/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/tksimson/GitFoot/releases/tag/v1.0.0

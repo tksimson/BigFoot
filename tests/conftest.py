@@ -3,9 +3,9 @@
 Two rules hold for the whole suite:
 
 * Nothing reads or writes the developer's real environment. ``HOME``,
-  ``XDG_*``, ``BIGFOOT_HOME`` and git's global/system config files are all
+  ``XDG_*``, ``GITFOOT_HOME`` and git's global/system config files are all
   redirected into ``tmp_path`` by an autouse fixture, so a test can never pick
-  up the developer's git identity or clobber ``~/.config/bigfoot``.
+  up the developer's git identity or clobber ``~/.config/gitfoot``.
 * Nothing depends on the wall clock. Commits are made with explicit UTC
   timestamps and every date-sensitive function is called with an explicit
   ``today``.
@@ -19,8 +19,8 @@ from pathlib import Path
 
 import pytest
 
-from bigfoot import gitscan
-from bigfoot.store import Commit, Store
+from gitfoot import gitscan
+from gitfoot.store import Commit, Store
 
 # A fixed "today" for date-sensitive tests. A Wednesday, mid-week and mid-month,
 # so weekday and month-boundary logic is exercised away from the edges.
@@ -45,7 +45,7 @@ def hermetic_env(tmp_path_factory, monkeypatch):
     monkeypatch.setenv("GIT_ASKPASS", "true")
     monkeypatch.setenv("LC_ALL", "C")
 
-    for var in ("BIGFOOT_HOME", "XDG_CONFIG_HOME", "XDG_DATA_HOME"):
+    for var in ("GITFOOT_HOME", "XDG_CONFIG_HOME", "XDG_DATA_HOME"):
         monkeypatch.delenv(var, raising=False)
 
     return home
@@ -181,7 +181,7 @@ def plain_dir(path: Path) -> gitscan.Found:
 @pytest.fixture
 def store(tmp_path):
     """An empty store in its own directory, closed on teardown."""
-    with Store(tmp_path / "data" / "bigfoot.db") as opened:
+    with Store(tmp_path / "data" / "gitfoot.db") as opened:
         yield opened
 
 

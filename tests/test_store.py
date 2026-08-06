@@ -11,7 +11,7 @@ from __future__ import annotations
 import pytest
 from conftest import COLLEAGUE, ME, commit
 
-from bigfoot.store import Commit, Store
+from gitfoot.store import Commit, Store
 
 # -- idempotency ---------------------------------------------------------
 
@@ -307,7 +307,7 @@ def test_commits_from_several_of_your_addresses_all_count(store):
 
 
 def test_opening_a_store_creates_its_directory(tmp_path):
-    target = tmp_path / "nested" / "deeper" / "bigfoot.db"
+    target = tmp_path / "nested" / "deeper" / "gitfoot.db"
 
     with Store(target) as opened:
         assert opened.meta_get("schema_version") == "1"
@@ -316,7 +316,7 @@ def test_opening_a_store_creates_its_directory(tmp_path):
 
 
 def test_data_survives_reopening_the_same_file(tmp_path):
-    target = tmp_path / "bigfoot.db"
+    target = tmp_path / "gitfoot.db"
     with Store(target) as first:
         repo_id = first.upsert_repo("k", "n", "/p")
         first.add_commits(repo_id, [commit("aaa", "2026-08-04")])
@@ -327,7 +327,7 @@ def test_data_survives_reopening_the_same_file(tmp_path):
 
 
 def test_reopening_does_not_reset_the_schema_version(tmp_path):
-    target = tmp_path / "bigfoot.db"
+    target = tmp_path / "gitfoot.db"
     with Store(target) as first:
         first.meta_set("schema_version", "1")
 

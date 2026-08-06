@@ -369,12 +369,12 @@ def first_run(term: Terminal, configured: bool = False) -> str:
     return _prompt(
         term,
         "Not watching any directories yet.",
-        "bigfoot init",
+        "gitfoot init",
         "Picks the folders your git repositories live in.",
     )
 
 
-def empty_state(term: Terminal, command: str = "bigfoot sync") -> str:
+def empty_state(term: Terminal, command: str = "gitfoot sync") -> str:
     """Configured, but the database is empty."""
     return _prompt(
         term,
@@ -500,7 +500,7 @@ def config_view(term: Terminal, cfg: object, database: object) -> str:
 
 
 def init_roots(term: Terminal, suggested: list[str]) -> str:
-    """The directories BigFoot proposes to scan, before it scans anything."""
+    """The directories GitFoot proposes to scan, before it scans anything."""
     lines = ["", INDENT + "Found these project directories:", ""]
     lines += [INDENT + INDENT + _shorten(term, path) for path in suggested]
     return "\n".join(lines)

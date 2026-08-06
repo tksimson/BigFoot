@@ -12,7 +12,7 @@ from datetime import date, timedelta
 import pytest
 from conftest import ME, commit
 
-from bigfoot import stats
+from gitfoot import stats
 
 TODAY = date(2026, 8, 5)  # a Wednesday
 
