@@ -86,6 +86,38 @@ def test_the_same_directory_twice_is_recorded_once(answering, dirs):
     assert cli.ask_roots([(d, 3) for d in dirs]) == [dirs[0]]
 
 
+# -- paths with spaces in them -------------------------------------------
+
+
+def test_a_path_containing_a_space_is_one_answer_not_two(answering, dirs, tmp_path):
+    """Splitting on whitespace blamed two directories the reader never named."""
+    spaced = tmp_path / "my projects"
+    spaced.mkdir()
+    answering(str(spaced))
+
+    assert cli.ask_roots([(d, 3) for d in dirs]) == [str(spaced)]
+
+
+def test_a_quoted_path_can_be_mixed_with_numbers(answering, dirs, tmp_path):
+    spaced = tmp_path / "my projects"
+    spaced.mkdir()
+    answering(f'1 "{spaced}"')
+
+    assert cli.ask_roots([(d, 3) for d in dirs]) == [dirs[0], str(spaced)]
+
+
+def test_commas_still_separate_when_no_path_is_quoted(answering, dirs):
+    answering("1,3")
+
+    assert cli.ask_roots([(d, 3) for d in dirs]) == [dirs[0], dirs[2]]
+
+
+def test_an_unbalanced_quote_does_not_crash(answering, dirs):
+    answering('1 "oops', "1")
+
+    assert cli.ask_roots([(d, 3) for d in dirs]) == [dirs[0]]
+
+
 # -- refusing what would silently produce nothing ------------------------
 
 

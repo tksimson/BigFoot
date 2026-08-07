@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import dataclasses
 import json
+import shlex
 import shutil
 import sys
 import time
@@ -20,9 +21,10 @@ from pathlib import Path
 from . import __version__, config, gitscan, render, stats, term
 from .store import Store
 
-# Where projects usually live. Only ever *offered* -- never scanned without
-# the user saying yes. A tool that walks your home directory on first run
-# deserves the reception it gets.
+# Where projects usually live. Only ever *offered* -- never tracked, and no
+# commit ever read, without the user saying yes. `init` does walk these to
+# count what is in them, because a bare path is not enough to choose from, but
+# nothing outside this list is touched and nothing is recorded until asked.
 CANDIDATE_ROOTS = (
     "~/dev",
     "~/code",
@@ -308,13 +310,19 @@ def cmd_init(args: argparse.Namespace, out: term.Terminal) -> int:
             return 1
 
         # Counted before the question, not after: an empty directory and one
-        # holding thirty repositories look identical as bare paths.
+        # holding thirty repositories look identical as bare paths. One scan
+        # across all of them, attributed afterwards -- a scan per candidate
+        # would run git once per repository in directories about to be declined.
         counting = Progress()
         counting.show("counting repositories")
-        entries = [
-            (p, len(gitscan.discover([Path(p).expanduser()], cfg.ignore_dirs, cfg.max_depth)))
-            for p in suggested
-        ]
+        bases = [Path(p).expanduser() for p in suggested]
+        tally = dict.fromkeys(bases, 0)
+        for found in gitscan.discover(bases, cfg.ignore_dirs, cfg.max_depth):
+            for base in bases:
+                if base == found.path or base in found.path.parents:
+                    tally[base] += 1
+                    break
+        entries = list(zip(suggested, (tally[b] for b in bases), strict=True))
         counting.clear()
 
         print(render.init_roots(out, entries))
@@ -493,6 +501,22 @@ def invocation() -> str:
     return "gitfoot" if shutil.which("gitfoot") else "uvx gitfoot"
 
 
+def _tokens(answer: str) -> list[str]:
+    """Split an answer into numbers and paths, keeping spaces inside a path.
+
+    ``~/my projects`` is one answer, not two. A directory that is exactly the
+    whole line wins outright; otherwise shell quoting decides, which is the
+    convention the reader already has in their fingers.
+    """
+    if Path(answer).expanduser().is_dir():
+        return [answer]
+    separated = answer.replace(",", " ")
+    try:
+        return shlex.split(separated)
+    except ValueError:  # an unbalanced quote
+        return separated.split()
+
+
 def ask_roots(entries: list[tuple[str, int]]) -> list[str]:
     """Choose directories to scan: all of them, some of them, or your own.
 
@@ -518,7 +542,7 @@ def ask_roots(entries: list[tuple[str, int]]) -> list[str]:
         picked: list[str] = []
         unknown: list[str] = []
         missing: list[str] = []
-        for token in answer.replace(",", " ").split():
+        for token in _tokens(answer):
             if token.isdigit():
                 index = int(token) - 1
                 if 0 <= index < len(entries):
