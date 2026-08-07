@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **The tool printed commands you could not run.** Every hint said `gitfoot
+  init` or `gitfoot sync`, but `uvx gitfoot` installs nothing on PATH, so a
+  reader following the first-run screen hit `command not found`. Hints now name
+  whichever spelling actually works, decided by looking for `gitfoot` on PATH.
+
+### Changed
+
+- **`init` can be told about directories it did not find.** The prompt was a
+  y/N over the whole suggested list, so a project directory outside the eight
+  well-known names could not be tracked from the interactive flow at all. It is
+  now a pick: Enter for everything, numbers for a subset, or type paths to add.
+  A path that does not exist is refused rather than saved.
+- **`init` counts repositories before asking.** `~/dev` and an empty
+  `~/Documents/GitHub` used to look identical as bare paths.
+
 ## [1.0.0] - 2026-08-05
 
 Published as `gitfoot`. The project was developed under the name BigFoot, but

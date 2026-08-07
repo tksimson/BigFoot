@@ -358,28 +358,28 @@ def _totals(
 # -- empty states --------------------------------------------------------
 
 
-def first_run(term: Terminal, configured: bool = False) -> str:
+def first_run(term: Terminal, configured: bool = False, prefix: str = "gitfoot") -> str:
     """Nothing to show yet: one sentence, one command, nothing else.
 
     The two ways of having no data need different next steps, which is the only
     reason this branches at all.
     """
     if configured:
-        return empty_state(term)
+        return empty_state(term, prefix=prefix)
     return _prompt(
         term,
         "Not watching any directories yet.",
-        "gitfoot init",
+        f"{prefix} init",
         "Picks the folders your git repositories live in.",
     )
 
 
-def empty_state(term: Terminal, command: str = "gitfoot sync") -> str:
+def empty_state(term: Terminal, command: str = "sync", prefix: str = "gitfoot") -> str:
     """Configured, but the database is empty."""
     return _prompt(
         term,
         "No commits recorded yet.",
-        command,
+        f"{prefix} {command}",
         "Reads your repositories and records the commits authored by you.",
     )
 
@@ -499,10 +499,37 @@ def config_view(term: Terminal, cfg: object, database: object) -> str:
     return "\n".join(lines)
 
 
-def init_roots(term: Terminal, suggested: list[str]) -> str:
-    """The directories GitFoot proposes to scan, before it scans anything."""
+def init_roots(term: Terminal, entries: list[tuple[str, int]]) -> str:
+    """The directories GitFoot proposes to scan, numbered so they can be picked.
+
+    The repository count is shown before anything is chosen. ``~/dev`` on its
+    own is not enough to decide on; ``~/dev, 10 repos`` is, and an empty
+    directory is visibly not worth keeping.
+    """
     lines = ["", INDENT + "Found these project directories:", ""]
-    lines += [INDENT + INDENT + _shorten(term, path) for path in suggested]
+    # The figures are right-aligned against each other, so "10" and "3" can be
+    # compared down the column rather than read one at a time.
+    digit_w = max((len(_num(repos)) for _, repos in entries), default=0)
+    counts = [f"{_num(repos).rjust(digit_w)} {_unit(repos, 'repo')}" for _, repos in entries]
+    num_w = len(str(len(entries)))
+    count_w = max((len(c) for c in counts), default=0)
+
+    # _shorten subtracts one INDENT itself. Everything else on the line has to
+    # be reserved here, or a long path runs straight through the count column
+    # and off the edge of a narrow terminal.
+    reserve = len(INDENT) + num_w + 2 + 2 + count_w
+    shortened = [_shorten(term, path, reserve=reserve) for path, _ in entries]
+    width = max((visible_len(s) for s in shortened), default=0)
+
+    for number, (short, count) in enumerate(zip(shortened, counts, strict=True), start=1):
+        lines.append(
+            INDENT
+            + INDENT
+            + str(number).rjust(num_w)
+            + "  "
+            + term.ljust(short, width + 2)
+            + term.style(count, dim=True)
+        )
     return "\n".join(lines)
 
 

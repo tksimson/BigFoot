@@ -41,10 +41,21 @@ a light background, and a pipe. The bottom two rows are the weekend.
 ## Install
 
 ```bash
-uvx gitfoot          # run it without installing
-pipx install gitfoot # keep it on PATH, isolated
+uv tool install gitfoot # keep it on PATH, isolated
+pipx install gitfoot    # the same thing, if you use pipx
 pip install gitfoot
 ```
+
+To try it once without installing anything:
+
+```bash
+uvx gitfoot init
+```
+
+`uvx` runs from a throwaway environment and puts nothing on your PATH, so
+every command stays `uvx gitfoot ...` until you install it properly. GitFoot
+notices which of the two you are using and prints commands you can actually
+run.
 
 Python 3.11+ and git. Zero runtime dependencies: no click, no rich, no
 requests, nothing to resolve and nothing to break on upgrade. The install is
@@ -61,12 +72,30 @@ gitfoot        # the dashboard
 `init` runs a full-history sync when it finishes, so the first dashboard has
 everything in it. After that, `sync` is the one you repeat.
 
-`init` offers the usual project directories (`~/dev`, `~/code`, `~/src`,
-`~/projects`, `~/work`, `~/repos`, `~/git`, `~/Documents/GitHub`) and asks
-before scanning any of them. It never picks on its own. Add `-y` to skip the
-prompt, `--no-sync` to write config without reading anything yet, and
-`--root DIR` / `--email ADDR` (both repeatable) to skip the interactive part
-entirely.
+`init` looks in the usual places (`~/dev`, `~/code`, `~/src`, `~/projects`,
+`~/work`, `~/repos`, `~/git`, `~/Documents/GitHub`), counts the repositories
+in each, and asks before scanning any of them. It never picks on its own:
+
+```
+  Found these project directories:
+
+    1  ~/dev                10 repos
+    2  ~/work                3 repos
+    3  ~/Documents/GitHub    0 repos
+
+  scan these? [Enter for all, numbers, or paths] 1 2 ~/clients
+```
+
+Enter takes everything found, numbers take a subset, and anything that is not
+a number is read as a directory to add. Mix them freely. A path that does not
+exist is refused there and then rather than stored, because a typo would
+otherwise surface much later as a dashboard of zeros.
+
+Add `-y` to accept the offered directories without asking, `--no-sync` to
+write config without reading anything yet, and `--root DIR` / `--email ADDR`
+(both repeatable) to skip the interactive part entirely. Running `init` again
+adds to what you already track; it never drops a directory. To stop scanning
+one, use `gitfoot repos --remove DIR`.
 
 `sync` is incremental: each repository is read from where it left off, with a
 week of overlap to absorb rebases and clock skew. Re-running is always safe,

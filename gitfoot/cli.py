@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import dataclasses
 import json
+import shutil
 import sys
 import time
 from datetime import date, timedelta
@@ -83,7 +84,7 @@ def cmd_dashboard(args: argparse.Namespace, out: term.Terminal) -> int:
             if args.json:
                 emit_json({"commits": 0, "configured": cfg.configured})
                 return 0
-            print(render.first_run(out, configured=cfg.configured))
+            print(render.first_run(out, configured=cfg.configured, prefix=invocation()))
             return 0
 
         snap = stats.snapshot(store, weeks=args.weeks)
@@ -97,14 +98,14 @@ def cmd_dashboard(args: argparse.Namespace, out: term.Terminal) -> int:
 def cmd_sync(args: argparse.Namespace, out: term.Terminal) -> int:
     cfg = config.load()
     if not cfg.configured:
-        print(render.first_run(out, configured=False))
+        print(render.first_run(out, configured=False, prefix=invocation()))
         return 1
 
     emails = set(cfg.emails)
     if not emails:
         print(
             "gitfoot: no author emails configured, so nothing can be attributed to you.\n"
-            "         run 'gitfoot config --add-email you@example.com'",
+            f"         run '{invocation()} config --add-email you@example.com'",
             file=sys.stderr,
         )
         return 1
@@ -203,7 +204,7 @@ def cmd_repos(args: argparse.Namespace, out: term.Terminal) -> int:
             return 1
         updated = config.with_roots(cfg, args.add)
         config.save(updated)
-        print(f"scanning {len(updated.roots)} directories. run 'gitfoot sync'.")
+        print(f"scanning {len(updated.roots)} directories. run '{invocation()} sync'.")
         return 0
 
     if args.remove:
@@ -294,17 +295,29 @@ def cmd_init(args: argparse.Namespace, out: term.Terminal) -> int:
     interactive = sys.stdin.isatty() and not args.yes
 
     # 1. Which directories.
+    how = invocation()
     roots = [str(Path(r).expanduser().resolve()) for r in (args.root or [])]
     if not roots:
         suggested = [p for p in CANDIDATE_ROOTS if Path(p).expanduser().is_dir()]
         if not suggested:
             print(
                 "gitfoot: none of the usual project directories exist here.\n"
-                "         point it somewhere: gitfoot init --root ~/somewhere",
+                f"         point it somewhere: {how} init --root ~/somewhere",
                 file=sys.stderr,
             )
             return 1
-        print(render.init_roots(out, suggested))
+
+        # Counted before the question, not after: an empty directory and one
+        # holding thirty repositories look identical as bare paths.
+        counting = Progress()
+        counting.show("counting repositories")
+        entries = [
+            (p, len(gitscan.discover([Path(p).expanduser()], cfg.ignore_dirs, cfg.max_depth)))
+            for p in suggested
+        ]
+        counting.clear()
+
+        print(render.init_roots(out, entries))
         if not sys.stdin.isatty() and not args.yes:
             # Nobody is there to answer, and consent cannot be assumed from
             # silence. The whole point of offering rather than guessing is
@@ -315,10 +328,13 @@ def cmd_init(args: argparse.Namespace, out: term.Terminal) -> int:
                 file=sys.stderr,
             )
             return 1
-        if interactive and not confirm("scan these?"):
-            print("nothing changed. try: gitfoot init --root ~/somewhere")
-            return 0
-        roots = [str(Path(p).expanduser().resolve()) for p in suggested]
+        if interactive:
+            roots = ask_roots(entries)
+            if not roots:
+                print(f"nothing changed. try: {how} init --root ~/somewhere")
+                return 0
+        else:
+            roots = [str(Path(p).expanduser().resolve()) for p in suggested]
 
     cfg = config.with_roots(cfg, roots)
 
@@ -351,7 +367,7 @@ def cmd_init(args: argparse.Namespace, out: term.Terminal) -> int:
     if not mine:
         print(
             "gitfoot: no identity chosen, so nothing would be counted.\n"
-            "         set git's user.email, or: gitfoot config --add-email you@example.com",
+            f"         set git's user.email, or: {how} config --add-email you@example.com",
             file=sys.stderr,
         )
         return 1
@@ -362,7 +378,7 @@ def cmd_init(args: argparse.Namespace, out: term.Terminal) -> int:
     print(f"config: {cfg.path}")
 
     if args.no_sync:
-        print("run 'gitfoot sync' when ready.")
+        print(f"run '{how} sync' when ready.")
         return 0
 
     sync_args = argparse.Namespace(
@@ -464,6 +480,65 @@ class Progress:
             return
         print("\r" + " " * self._width + "\r", end="", flush=True, file=sys.stderr)
         self._width = 0
+
+
+def invocation() -> str:
+    """The command prefix that will actually work in the reader's shell.
+
+    ``uvx gitfoot`` runs from a throwaway environment and installs nothing, so
+    every hint that says ``gitfoot init`` names a command the reader cannot
+    run. Asking PATH is cheaper than guessing how we were launched, and it is
+    the precise condition that decides which of the two spellings works.
+    """
+    return "gitfoot" if shutil.which("gitfoot") else "uvx gitfoot"
+
+
+def ask_roots(entries: list[tuple[str, int]]) -> list[str]:
+    """Choose directories to scan: all of them, some of them, or your own.
+
+    A bare number picks from the list and anything else is read as a path. One
+    prompt rather than two, because "which of these" and "any others" are the
+    same decision and nobody names a project directory ``2``.
+
+    A path that does not exist is refused rather than stored. A typo here would
+    otherwise be discovered much later, as a dashboard of zeros with nothing on
+    screen to explain it.
+    """
+    if not sys.stdin.isatty():
+        return []
+
+    for _ in range(3):
+        try:
+            answer = input("\n  scan these? [Enter for all, numbers, or paths] ").strip()
+        except EOFError:
+            return []
+        if not answer:
+            return [str(Path(p).expanduser().resolve()) for p, _ in entries]
+
+        picked: list[str] = []
+        unknown: list[str] = []
+        missing: list[str] = []
+        for token in answer.replace(",", " ").split():
+            if token.isdigit():
+                index = int(token) - 1
+                if 0 <= index < len(entries):
+                    picked.append(str(Path(entries[index][0]).expanduser().resolve()))
+                else:
+                    unknown.append(token)
+                continue
+            path = Path(token).expanduser()
+            if path.is_dir():
+                picked.append(str(path.resolve()))
+            else:
+                missing.append(token)
+
+        if not unknown and not missing:
+            return config.dedupe(picked)
+        if unknown:
+            print(f"  no option numbered {', '.join(unknown)}", file=sys.stderr)
+        if missing:
+            print(f"  no such directory: {', '.join(missing)}", file=sys.stderr)
+    return []
 
 
 def ask_indexes(question: str, count: int) -> list[int]:
