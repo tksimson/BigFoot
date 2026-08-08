@@ -93,9 +93,44 @@ otherwise surface much later as a dashboard of zeros.
 
 Add `-y` to accept the offered directories without asking, `--no-sync` to
 write config without reading anything yet, and `--root DIR` / `--email ADDR`
-(both repeatable) to skip the interactive part entirely. Running `init` again
-adds to what you already track; it never drops a directory. To stop scanning
-one, use `gitfoot repos --remove DIR`.
+(both repeatable) to skip the interactive part entirely.
+
+## Changing what you track
+
+Run `init` again. Once you are set up it stops offering a fresh start and
+shows what you have, so the one command anybody would try is the one that
+works:
+
+```
+  Scanning these:
+
+    1  ~/dev       10 repos  ✓
+    2  ~/work       3 repos  ✓
+
+  Also found:
+
+    3  ~/code       5 repos
+
+  change what? [numbers to toggle, or type to add, Enter to keep] 3 ~/clients
+```
+
+Numbers toggle: a ticked entry off, an unticked one on. Anything that is not
+a number is added. Enter changes nothing. Identities work the same way in the
+step that follows, listing who currently counts as you and who else appears in
+your history.
+
+Turning something off forgets what it contributed. Dropping a directory drops
+its repositories and their commits; dropping an address drops the commits
+attributed to it. Otherwise history nobody claims would go on padding the
+streak, which is the sort of quiet wrongness this tool exists to avoid.
+
+The flags still work if you prefer them, and are the only option in a script:
+
+```bash
+gitfoot repos --add ~/clients
+gitfoot repos --remove ~/old
+gitfoot config --add-email me@work.example
+```
 
 `sync` is incremental: each repository is read from where it left off, with a
 week of overlap to absorb rebases and clock skew. Re-running is always safe,

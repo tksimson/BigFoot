@@ -14,6 +14,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   reader following the first-run screen hit `command not found`. Hints now name
   whichever spelling actually works, decided by looking for `gitfoot` on PATH.
 
+### Added
+
+- **`init` changes what you already track.** There was no interactive way to
+  add or remove anything after setup: re-running `init` offered the same eight
+  well-known directories whether or not they were tracked, never showed what
+  *was* tracked, and could not remove. Knowing `repos --add` / `repos --remove`
+  / `config --add-email` was the only way through. Now `init` on a configured
+  install lists what is on and what else it found, numbers both, and toggles.
+  Identities work the same way.
+- **Turning something off forgets what it contributed.** Dropping a directory
+  drops its repositories and their commits, as `repos --remove` already did;
+  dropping an address now drops the commits attributed to it, via
+  `Store.forget_email`.
+
 ### Changed
 
 - **`init` can be told about directories it did not find.** The prompt was a

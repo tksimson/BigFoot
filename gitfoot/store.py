@@ -196,6 +196,19 @@ class Store:
             cur = conn.execute("DELETE FROM repos WHERE key = ?", (key,))
         return cur.rowcount > 0
 
+    def forget_email(self, email: str) -> int:
+        """Drop every commit attributed to ``email``. Returns rows removed.
+
+        Dropping an identity has to drop what it contributed, for the same
+        reason dropping a root does: commits nobody claims would go on padding
+        the streak with no way to see why.
+        """
+        with self._tx() as conn:
+            cur = conn.execute(
+                "DELETE FROM commits WHERE lower(email) = ?", (email.strip().lower(),)
+            )
+        return cur.rowcount
+
     # -- commits ---------------------------------------------------------
 
     def add_commits(self, repo_id: int, commits: Iterable[Commit]) -> int:

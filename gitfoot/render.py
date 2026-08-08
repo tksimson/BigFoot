@@ -533,6 +533,59 @@ def init_roots(term: Terminal, entries: list[tuple[str, int]]) -> str:
     return "\n".join(lines)
 
 
+def toggle_list(
+    term: Terminal,
+    tracked: list[tuple[str, str]],
+    available: list[tuple[str, str]],
+    tracked_heading: str,
+    available_heading: str,
+) -> str:
+    """What is on, what is off, numbered continuously so either can be picked.
+
+    Both sections share one run of numbers. Numbering them separately would
+    mean "3" meant two different things depending on which list you read it
+    from, which is exactly the mistake that ends up costing someone their
+    history.
+
+    Each entry is ``(label, note)``; the note is the count or whatever else
+    makes the entry worth keeping.
+    """
+    sections = ((tracked_heading, tracked, True), (available_heading, available, False))
+    total = len(tracked) + len(available)
+    if not total:
+        return ""
+
+    num_w = len(str(total))
+    note_w = max((len(note) for _, note in tracked + available), default=0)
+    mark = term.glyphs.tick
+    reserve = len(INDENT) + num_w + 2 + 2 + note_w + 2 + visible_len(mark)
+    shortened = {
+        label: _shorten(term, label, reserve=reserve) for label, _ in tracked + available
+    }
+    label_w = max((visible_len(text) for text in shortened.values()), default=0)
+
+    lines: list[str] = []
+    number = 0
+    for heading, entries, on in sections:
+        if not entries:
+            continue
+        lines += ["", INDENT + heading, ""]
+        for label, note in entries:
+            number += 1
+            lines.append(
+                (
+                    INDENT
+                    + INDENT
+                    + str(number).rjust(num_w)
+                    + "  "
+                    + term.ljust(shortened[label], label_w + 2)
+                    + term.ljust(term.style(note, dim=True), note_w + 2)
+                    + (term.style(mark, term.theme.added) if on else "")
+                ).rstrip()
+            )
+    return "\n".join(lines)
+
+
 def init_emails(
     term: Terminal,
     repositories: int,

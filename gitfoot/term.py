@@ -122,6 +122,7 @@ class Glyphs:
     minus: str
     dot: str  # separator between figures
     ellipsis: str
+    tick: str  # marks an entry as tracked
 
 
 UNICODE_GLYPHS = Glyphs(
@@ -131,6 +132,7 @@ UNICODE_GLYPHS = Glyphs(
     minus="−",  # a real minus, not a hyphen
     dot="·",
     ellipsis="…",
+    tick="✓",
 )
 
 ASCII_GLYPHS = Glyphs(
@@ -140,10 +142,16 @@ ASCII_GLYPHS = Glyphs(
     minus="-",
     dot="|",
     ellipsis="...",
+    tick="*",
 )
 
 # Probe string: if the encoding takes these, it takes everything we emit.
-_PROBE = "".join(UNICODE_GLYPHS.heat) + UNICODE_GLYPHS.minus + UNICODE_GLYPHS.ellipsis
+_PROBE = (
+    "".join(UNICODE_GLYPHS.heat)
+    + UNICODE_GLYPHS.minus
+    + UNICODE_GLYPHS.ellipsis
+    + UNICODE_GLYPHS.tick
+)
 
 
 class Terminal:

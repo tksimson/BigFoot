@@ -349,3 +349,40 @@ def test_a_commit_cannot_be_attached_to_an_unknown_repository(store):
 
     with pytest.raises(sqlite3.IntegrityError):
         store.add_commits(999, [Commit(sha="aaa", day="2026-08-04", email=ME)])
+
+
+def test_forgetting_an_identity_drops_its_commits(tmp_path):
+    """Dropping an identity has to drop what it contributed, as dropping a root does."""
+    with Store(tmp_path / "g.db") as store:
+        repo = store.upsert_repo("k", "n", "/p")
+        store.add_commits(repo, [
+            Commit(sha="a", day="2026-08-01", email="me@x.com", insertions=1, deletions=0, files=1),
+            Commit(sha="b", day="2026-08-01", email="you@x.com", insertions=1, deletions=0, files=1),
+        ])
+
+        removed = store.forget_email("you@x.com")
+
+        assert removed == 1
+        assert store.total_commits() == 1
+
+
+def test_forgetting_an_identity_ignores_case(tmp_path):
+    with Store(tmp_path / "g.db") as store:
+        repo = store.upsert_repo("k", "n", "/p")
+        store.add_commits(repo, [
+            Commit(sha="a", day="2026-08-01", email="Me@X.com", insertions=0, deletions=0, files=0),
+        ])
+
+        assert store.forget_email("  me@x.COM  ") == 1
+        assert store.is_empty()
+
+
+def test_forgetting_an_unknown_identity_removes_nothing(tmp_path):
+    with Store(tmp_path / "g.db") as store:
+        repo = store.upsert_repo("k", "n", "/p")
+        store.add_commits(repo, [
+            Commit(sha="a", day="2026-08-01", email="me@x.com", insertions=0, deletions=0, files=0),
+        ])
+
+        assert store.forget_email("nobody@x.com") == 0
+        assert store.total_commits() == 1

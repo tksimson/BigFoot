@@ -248,3 +248,126 @@ def test_a_long_path_keeps_its_leaf_where_the_meaning_is():
     out = render.init_roots(narrow, [("~/a/very/long/way/down/to/clients", 7)])
 
     assert "clients" in out
+
+
+# -- changing what is tracked, after the first run -----------------------
+
+
+def test_numbers_toggle_and_text_adds(answering, tmp_path):
+    """The editor's whole contract in one answer: turn 2 off, add a path."""
+    extra = tmp_path / "clients"
+    extra.mkdir()
+    answering(f"2 {extra}")
+
+    toggled, added = cli.ask_changes(3, "> ", cli._as_directory, "no such directory")
+
+    assert toggled == [1]
+    assert added == [str(extra)]
+
+
+def test_an_empty_answer_means_leave_it_alone(answering):
+    """Unlike first run, where empty means "take everything found"."""
+    answering("")
+
+    assert cli.ask_changes(3, "> ", cli._as_directory, "no such directory") is None
+
+
+def test_a_rejected_addition_repeats_the_question(answering, capsys):
+    answering("/no/such/place", "1")
+
+    toggled, added = cli.ask_changes(3, "> ", cli._as_directory, "no such directory")
+
+    assert (toggled, added) == ([0], [])
+    assert "no such directory" in capsys.readouterr().err
+
+
+def test_an_out_of_range_toggle_is_refused(answering, capsys):
+    answering("9", "2")
+
+    toggled, _ = cli.ask_changes(3, "> ", cli._as_directory, "no such directory")
+
+    assert toggled == [1]
+    assert "no option numbered 9" in capsys.readouterr().err
+
+
+def test_the_same_toggle_twice_counts_once(answering):
+    answering("2 2")
+
+    toggled, _ = cli.ask_changes(3, "> ", cli._as_directory, "no such directory")
+
+    assert toggled == [1]
+
+
+def test_a_redirected_stdin_changes_nothing(monkeypatch):
+    monkeypatch.setattr(cli.sys.stdin, "isatty", lambda: False, raising=False)
+
+    assert cli.ask_changes(3, "> ", cli._as_directory, "x") is None
+
+
+@pytest.mark.parametrize("text", ["me@example.com", "  me@example.com  "])
+def test_an_address_is_accepted(text):
+    assert cli._as_email(text) == "me@example.com"
+
+
+@pytest.mark.parametrize("text", ["notanemail", "two words@x.com", ""])
+def test_a_non_address_is_refused(text):
+    assert cli._as_email(text) is None
+
+
+def test_an_address_with_an_escape_is_cleaned_before_it_is_stored():
+    """Same promise as the identity list: nothing repaints the line it is on."""
+    assert cli._as_email("me@x.com\x1b[31m") == "me@x.com[31m"
+
+
+# -- the toggle list itself ----------------------------------------------
+
+
+def test_tracked_and_available_share_one_run_of_numbers():
+    """Separate numbering would make "3" mean two things, and cost someone history."""
+    out = render.toggle_list(
+        plain(), [("~/dev", "10 repos")], [("~/code", "5 repos")], "On:", "Off:"
+    )
+
+    assert "1  ~/dev" in out
+    assert "2  ~/code" in out
+
+
+def test_only_tracked_entries_are_ticked():
+    out = render.toggle_list(
+        plain(), [("~/dev", "10 repos")], [("~/code", "5 repos")], "On:", "Off:"
+    )
+    dev, code = (line for line in out.splitlines() if "repos" in line)
+
+    assert "✓" in dev
+    assert "✓" not in code
+
+
+def test_a_section_with_nothing_in_it_is_not_printed():
+    out = render.toggle_list(plain(), [("~/dev", "10 repos")], [], "On:", "Off:")
+
+    assert "On:" in out
+    assert "Off:" not in out
+
+
+def test_an_empty_list_renders_nothing():
+    assert render.toggle_list(plain(), [], [], "On:", "Off:") == ""
+
+
+def test_the_tick_falls_back_to_ascii():
+    ascii_term = term.Terminal(color=False, width=80, unicode=False)
+
+    out = render.toggle_list(ascii_term, [("~/dev", "10 repos")], [], "On:", "Off:")
+
+    assert out.isascii()
+    assert "*" in out
+
+
+@pytest.mark.parametrize("width", [40, 60, 80, 120])
+def test_the_toggle_list_fits_its_terminal(width):
+    narrow = term.Terminal(color=False, width=width, unicode=True)
+    tracked = [(f"~/a/very/long/path/number/{n}", f"{n} repos") for n in range(5)]
+    available = [(f"~/another/long/one/{n}", f"{n} repos") for n in range(5)]
+
+    out = render.toggle_list(narrow, tracked, available, "On:", "Off:")
+
+    assert all(term.visible_len(line) <= narrow.width for line in out.splitlines())

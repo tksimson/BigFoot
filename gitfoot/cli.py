@@ -15,6 +15,7 @@ import shlex
 import shutil
 import sys
 import time
+from collections.abc import Callable
 from datetime import date, timedelta
 from pathlib import Path
 
@@ -286,6 +287,106 @@ def cmd_config(args: argparse.Namespace, out: term.Terminal) -> int:
     return 0
 
 
+CHANGE_PROMPT = "\n  change what? [numbers to toggle, or type to add, Enter to keep] "
+
+
+def reconfigure(args: argparse.Namespace, out: term.Terminal, cfg: config.Config, how: str) -> int:
+    """Already set up: show what is tracked, and change it in place.
+
+    Re-running `init` used to offer the same eight well-known directories
+    whether or not they were already tracked, and never showed what *was*
+    tracked -- so the one command anybody would try could neither add a
+    directory it had not heard of nor remove one.
+    """
+    progress = Progress()
+    progress.show("counting repositories")
+
+    on_paths = [Path(r) for r in cfg.roots]
+    off_paths = [
+        candidate
+        for p in CANDIDATE_ROOTS
+        if (candidate := Path(p).expanduser()).is_dir()
+        and not any(candidate == t or t in candidate.parents for t in on_paths)
+    ]
+    counts = count_repos(on_paths + off_paths, cfg)
+    found = gitscan.discover(on_paths, cfg.ignore_dirs, cfg.max_depth)
+    progress.show("reading author names")
+    authors = dict(gitscan.author_counts(found)) if found else {}
+    progress.clear()
+
+    def repo_note(path: Path) -> str:
+        return _plural(counts[path], "repo")
+
+    rows = [(str(p), repo_note(p)) for p in on_paths]
+    spare = [(str(p), repo_note(p)) for p in off_paths]
+    print(render.toggle_list(out, rows, spare, "Scanning these:", "Also found:"))
+
+    change = ask_changes(
+        len(rows) + len(spare), CHANGE_PROMPT, _as_directory, "no such directory"
+    )
+    dropped: list[Path] = []
+    if change:
+        toggled, added = change
+        dropped = [on_paths[i] for i in toggled if i < len(on_paths)]
+        gained = [str(off_paths[i - len(on_paths)]) for i in toggled if i >= len(on_paths)]
+        keep = [str(p) for p in on_paths if p not in dropped]
+        cfg = config.with_roots(dataclasses.replace(cfg, roots=keep), gained + added)
+
+    # Identities, the same way: what counts as you, and who else showed up.
+    known = {e.lower() for e in cfg.emails}
+    mine = [(e, _plural(authors.get(e.lower(), 0), "commit")) for e in cfg.emails]
+    others = [(e, _plural(n, "commit")) for e, n in authors.items() if e.lower() not in known]
+    print(render.toggle_list(out, mine, others, "Counted as you:", "Also found:"))
+
+    identity = ask_changes(
+        len(mine) + len(others), CHANGE_PROMPT, _as_email, "not an email address"
+    )
+    forgotten_emails: list[str] = []
+    if identity:
+        toggled, added = identity
+        forgotten_emails = [cfg.emails[i] for i in toggled if i < len(mine)]
+        gained = [others[i - len(mine)][0] for i in toggled if i >= len(mine)]
+        keep = [e for e in cfg.emails if e not in forgotten_emails]
+        cfg = config.with_emails(dataclasses.replace(cfg, emails=keep), gained + added)
+
+    if not cfg.roots:
+        print("gitfoot: nothing left to scan, so nothing was saved.", file=sys.stderr)
+        return 1
+    if not cfg.emails:
+        print("gitfoot: nobody left to count, so nothing was saved.", file=sys.stderr)
+        return 1
+
+    config.save(cfg)
+
+    # Dropping a root or an identity has to drop what it contributed, or the
+    # streak goes on being padded by history nobody claims.
+    forgotten = 0
+    with open_store(args) as store:
+        for repo in store.repos():
+            path = Path(repo.path)
+            if any(path == d or path.is_relative_to(d) for d in dropped):
+                forgotten += store.forget_repo(repo.key)
+        for email in forgotten_emails:
+            store.forget_email(email)
+
+    print(f"tracking {_plural(len(cfg.roots), 'directory')} as {', '.join(cfg.emails)}")
+    if forgotten or forgotten_emails:
+        print(
+            f"forgot {_plural(forgotten, 'repository')} "
+            f"and {_plural(len(forgotten_emails), 'identity')}."
+        )
+    print(f"config: {cfg.path}")
+
+    if args.no_sync:
+        print(f"run '{how} sync' when ready.")
+        return 0
+    return cmd_sync(
+        argparse.Namespace(**{**vars(args), "command": "sync", "days": None, "since": None,
+                              "all": True}),
+        out,
+    )
+
+
 def cmd_init(args: argparse.Namespace, out: term.Terminal) -> int:
     """Set up tracking: choose the directories, then confirm the identities.
 
@@ -295,9 +396,14 @@ def cmd_init(args: argparse.Namespace, out: term.Terminal) -> int:
     """
     cfg = config.load()
     interactive = sys.stdin.isatty() and not args.yes
+    how = invocation()
+
+    # Already set up and nothing named on the command line: this is somebody
+    # coming back to change something, not to start over.
+    if cfg.configured and interactive and not args.root and not args.email:
+        return reconfigure(args, out, cfg, how)
 
     # 1. Which directories.
-    how = invocation()
     roots = [str(Path(r).expanduser().resolve()) for r in (args.root or [])]
     if not roots:
         suggested = [p for p in CANDIDATE_ROOTS if Path(p).expanduser().is_dir()]
@@ -499,6 +605,86 @@ def invocation() -> str:
     the precise condition that decides which of the two spellings works.
     """
     return "gitfoot" if shutil.which("gitfoot") else "uvx gitfoot"
+
+
+def _plural(count: int, singular: str) -> str:
+    if count == 1:
+        return f"{count} {singular}"
+    plural = singular[:-1] + "ies" if singular.endswith("y") else singular + "s"
+    return f"{count} {plural}"
+
+
+def count_repos(bases: list[Path], cfg: config.Config) -> dict[Path, int]:
+    """How many repositories sit under each base, in one walk rather than N."""
+    tally = dict.fromkeys(bases, 0)
+    if not bases:
+        return tally
+    for found in gitscan.discover(bases, cfg.ignore_dirs, cfg.max_depth):
+        for base in bases:
+            if base == found.path or base in found.path.parents:
+                tally[base] += 1
+                break
+    return tally
+
+
+def ask_changes(
+    count: int,
+    prompt: str,
+    validate: Callable[[str], str | None],
+    reject: str,
+) -> tuple[list[int], list[str]] | None:
+    """Numbers toggle what is listed, anything else is added.
+
+    Returns the toggled indexes and the added values, or None for "leave it
+    alone" -- which is what an empty answer means here, unlike first run where
+    there is nothing yet to leave alone.
+    """
+    if not sys.stdin.isatty():
+        return None
+
+    for _ in range(3):
+        try:
+            answer = input(prompt).strip()
+        except EOFError:
+            return None
+        if not answer:
+            return None
+
+        toggled: list[int] = []
+        added: list[str] = []
+        unknown: list[str] = []
+        refused: list[str] = []
+        for token in _tokens(answer):
+            if token.isdigit():
+                index = int(token) - 1
+                if 0 <= index < count:
+                    toggled.append(index)
+                else:
+                    unknown.append(token)
+                continue
+            value = validate(token)
+            if value:
+                added.append(value)
+            else:
+                refused.append(token)
+
+        if not unknown and not refused:
+            return sorted(set(toggled)), config.dedupe(added)
+        if unknown:
+            print(f"  no option numbered {', '.join(unknown)}", file=sys.stderr)
+        if refused:
+            print(f"  {reject}: {', '.join(refused)}", file=sys.stderr)
+    return None
+
+
+def _as_directory(token: str) -> str | None:
+    path = Path(token).expanduser()
+    return str(path.resolve()) if path.is_dir() else None
+
+
+def _as_email(token: str) -> str | None:
+    cleaned = term.sanitize(token)
+    return cleaned if "@" in cleaned and " " not in cleaned else None
 
 
 def _tokens(answer: str) -> list[str]:
